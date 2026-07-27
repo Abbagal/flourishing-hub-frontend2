@@ -40,7 +40,7 @@ export default function QuizQuestionBuilder({ questions, onChange }: QuizQuestio
               rows={2}
               className="input-dark w-full px-3 py-2 rounded-lg text-sm resize-none"
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               {OPTION_KEYS.map((key) => (
                 <label key={key} className="flex items-center gap-2">
                   <input

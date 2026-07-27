@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Calendar, Activity, Settings,
   TrendingUp, UserCheck, UserCog, BarChart2, Play, Zap,
-  BookOpen, Shield, Edit2, ClipboardList, CheckCircle, Clock,
+  BookOpen, Shield, Edit2, ClipboardList, CheckCircle, Clock, FileQuestion,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import StatCard from '@/components/StatCard';
@@ -16,7 +16,7 @@ import { formatDate, formatTime } from '@/lib/utils';
 import { isEventLive, isEventUpcoming, isEventPast, toLocalDateKey } from '@/lib/dateUtils';
 import { useNowTick } from '@/lib/useNowTick';
 import { downloadCsv } from '@/lib/csv';
-import type { Event, MemberDirectory, UserRole, QuizQuestionForm } from '@/types';
+import type { Event, MemberDirectory, UserRole, QuizLibraryItem } from '@/types';
 import toast from 'react-hot-toast';
 
 // Tab components
@@ -34,6 +34,7 @@ import ApprovalsTab from './_components/tabs/ApprovalsTab';
 import RolesTab from './_components/tabs/RolesTab';
 import SettingsTab from './_components/tabs/SettingsTab';
 import VideosTab from './_components/tabs/VideosTab';
+import FormsTab from './_components/tabs/FormsTab';
 
 // Modal components
 import VideoModal from './_components/modals/VideoModal';
@@ -45,7 +46,7 @@ import BulkImportModal from './_components/modals/BulkImportModal';
 import BatchUploadModal from './_components/modals/BatchUploadModal';
 
 type EventStatus = 'published' | 'completed' | 'draft' | 'cancelled';
-type Tab = 'overview' | 'new-events' | 'event-status' | 'past-records' | 'calendar' | 'events' | 'courses' | 'members' | 'volunteers' | 'approvals' | 'roles' | 'settings' | 'analytics' | 'videos';
+type Tab = 'overview' | 'new-events' | 'event-status' | 'past-records' | 'calendar' | 'events' | 'courses' | 'members' | 'volunteers' | 'approvals' | 'roles' | 'settings' | 'analytics' | 'videos' | 'forms';
 type CourseStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 
 interface CourseFormData {
@@ -80,29 +81,12 @@ interface ModuleFormData {
   feedbackLink: string;
   duration: string;
   order: string;
-  quizQuestions: QuizQuestionForm[];
+  quizId: string | null;
 }
-
-// Fixed 10 slots — the in-built quiz is always exactly 10 questions, so the
-// builder UI never needs add/remove controls, just 10 pre-rendered blocks.
-const buildEmptyQuizQuestions = (): QuizQuestionForm[] =>
-  Array.from({ length: 10 }, () => ({
-    questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctOption: 'A' as const,
-  }));
-
-// A question counts as "filled" once every field has content — used to
-// decide whether the admin is trying to save a quiz at all (all filled),
-// still editing one (some filled — blocked, must finish or clear), or
-// skipping it entirely (none filled).
-const isQuizQuestionFilled = (q: QuizQuestionForm) =>
-  Boolean(q.questionText.trim() && q.optionA.trim() && q.optionB.trim() && q.optionC.trim() && q.optionD.trim());
-
-const countFilledQuizQuestions = (questions: QuizQuestionForm[]) =>
-  questions.filter(isQuizQuestionFilled).length;
 
 const emptyModuleForm: ModuleFormData = {
   title: '', description: '', posterUrl: '', quizLink: '', feedbackLink: '', duration: '', order: '0',
-  quizQuestions: buildEmptyQuizQuestions(),
+  quizId: null,
 };
 
 interface FilterState {
@@ -134,7 +118,7 @@ interface EventFormData {
   associateInstructorId: string;
   maxVolunteers: string;
   registrationMode: 'compulsory' | 'optional' | 'open';
-  quizQuestions: QuizQuestionForm[];
+  quizId: string | null;
 }
 
 const emptyForm: EventFormData = {
@@ -143,7 +127,7 @@ const emptyForm: EventFormData = {
   courseId: '', courseModuleId: '', batch: '', posterUrl: '', quizLink: '', feedbackLink: '',
   endTime: '', instructorId: '', associateInstructorId: '', maxVolunteers: '',
   registrationMode: 'open',
-  quizQuestions: buildEmptyQuizQuestions(),
+  quizId: null,
 };
 
 const ROLES: UserRole[] = ['student', 'instructor', 'admin', 'volunteer', 'associate-instructor'];
@@ -228,6 +212,8 @@ export default function AdminDashboard() {
   const [draftFilter, setDraftFilter] = useState(false);
   const [videos, setVideos] = useState<any[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
+  const [quizzes, setQuizzes] = useState<QuizLibraryItem[]>([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [savingVideo, setSavingVideo] = useState(false);
   const [videoForm, setVideoForm] = useState({ title: '', description: '', youtubeUrl: '', thumbnailUrl: '', duration: '', category: 'WELLNESS', tags: '' });
@@ -278,7 +264,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as Tab;
-      if (hash && ['new-events', 'event-status', 'past-records', 'calendar', 'events', 'courses', 'members', 'volunteers', 'approvals', 'roles', 'settings', 'analytics', 'videos'].includes(hash)) {
+      if (hash && ['new-events', 'event-status', 'past-records', 'calendar', 'events', 'courses', 'members', 'volunteers', 'approvals', 'roles', 'settings', 'analytics', 'videos', 'forms'].includes(hash)) {
         setActiveTab(hash);
       } else if (!hash) {
         setActiveTab('new-events');
@@ -339,7 +325,7 @@ export default function AdminDashboard() {
 
       // Phase 1: All fast data in parallel (excludes the slow events query)
       try {
-        const [userResult, dashboardResult, membersResult, volunteersResult, pendingResult, coursesResult] =
+        const [userResult, dashboardResult, membersResult, volunteersResult, pendingResult, coursesResult, quizzesResult] =
           await Promise.allSettled([
             getCurrentUser(),
             apiCall('/admin/dashboard'),
@@ -347,6 +333,7 @@ export default function AdminDashboard() {
             apiCall('/admin/volunteers'),
             apiCall('/admin/pending-approvals'),
             apiCall('/courses'),
+            apiCall('/quiz-library'),
           ]);
 
         if (userResult.status === 'fulfilled') {
@@ -375,6 +362,7 @@ export default function AdminDashboard() {
         if (volunteersResult.status === 'fulfilled') setVolunteers(volunteersResult.value?.data || []);
         if (pendingResult.status === 'fulfilled') setPendingUsers(pendingResult.value?.data || []);
         if (coursesResult.status === 'fulfilled') setCourses(coursesResult.value?.data || []);
+        if (quizzesResult.status === 'fulfilled') setQuizzes(quizzesResult.value?.data || []);
       } catch (error) {
         console.error('❌ Error fetching dashboard data:', error);
       } finally {
@@ -402,6 +390,13 @@ export default function AdminDashboard() {
     fetchVideos();
   }, [activeTab]);
 
+  // Re-fetch quizzes when the Forms tab is opened (kept fresh — page-load
+  // fetch above only covers the initial mount).
+  useEffect(() => {
+    if (activeTab !== 'forms') return;
+    refreshQuizzes();
+  }, [activeTab]);
+
   const handleSaveVideo = async () => {
     if (!videoForm.title || !videoForm.youtubeUrl) { toast.error('Title and YouTube URL required'); return; }
     setSavingVideo(true);
@@ -424,6 +419,32 @@ export default function AdminDashboard() {
       setVideos(prev => prev.filter(v => v.id !== videoId));
       toast.success('Video deleted');
     } catch { toast.error('Failed to delete video'); }
+  };
+
+  const refreshQuizzes = async () => {
+    setQuizzesLoading(true);
+    try {
+      const res = await apiCall('/quiz-library');
+      setQuizzes(res.data || []);
+    } catch { toast.error('Failed to load quizzes'); }
+    finally { setQuizzesLoading(false); }
+  };
+
+  // Appends a just-created quiz to the in-memory list immediately (so it
+  // shows up in the picker/Forms tab right away) instead of waiting on a
+  // full refetch.
+  const handleQuizCreated = (quiz: QuizLibraryItem) => {
+    setQuizzes(prev => [quiz, ...prev]);
+  };
+
+  const handleUpdateQuiz = async (id: string, title: string, questions: any[]) => {
+    await apiCall(`/quiz-library/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions }) });
+    await refreshQuizzes();
+  };
+
+  const handleDeleteQuiz = async (id: string) => {
+    await apiCall(`/quiz-library/${id}`, { method: 'DELETE' });
+    setQuizzes(prev => prev.filter(q => q.id !== id));
   };
 
   const handleBulkEnroll = async () => {
@@ -568,7 +589,7 @@ export default function AdminDashboard() {
       instructorId: ev.instructorId || '',
       associateInstructorId: ev.associateInstructorId || '',
       maxVolunteers: ev.volunteersNeeded ? String(ev.volunteersNeeded) : '',
-      quizQuestions: buildEmptyQuizQuestions(),
+      quizId: null,
     });
     if (ev.courseId) {
       const course = courses.find(c => c.id === ev.courseId);
@@ -577,19 +598,12 @@ export default function AdminDashboard() {
         apiCall(`/courses/${ev.courseId}/modules`).then(r => setModulesForEvent(r.data || [])).catch(() => {});
       }
     } else {
-      // Only a standalone/open-workshop event owns its own in-built quiz —
+      // Only a standalone/open-workshop event owns its own quiz link —
       // a course-linked event inherits its quiz from courseModule instead.
       apiCall(`/admin/events/${ev.id}/quiz`)
         .then((r) => {
-          const existing = r?.data?.questions;
-          if (Array.isArray(existing) && existing.length === 10) {
-            setForm((prev) => ({
-              ...prev,
-              quizQuestions: existing.map((q: any) => ({
-                questionText: q.questionText, optionA: q.optionA, optionB: q.optionB,
-                optionC: q.optionC, optionD: q.optionD, correctOption: q.correctOption,
-              })),
-            }));
+          if (r?.data?.id) {
+            setForm((prev) => ({ ...prev, quizId: r.data.id }));
           }
         })
         .catch(() => {});
@@ -605,14 +619,6 @@ export default function AdminDashboard() {
 
     if (saving) {
       return; // Prevent double submission
-    }
-
-    // Only a standalone/open-workshop event (no courseId) authors its own
-    // quiz — course-linked events inherit theirs from the module instead.
-    const filledQuizCount = !form.courseId ? countFilledQuizQuestions(form.quizQuestions) : 0;
-    if (filledQuizCount > 0 && filledQuizCount < 10) {
-      toast.error('Fill in all 10 in-built quiz questions, or leave all of them blank to skip it.');
-      return;
     }
 
     try {
@@ -687,18 +693,19 @@ export default function AdminDashboard() {
         toast.success(form.status === 'published' ? 'Event published!' : 'Event saved as draft');
       }
 
-      // Save the in-built quiz as a second, sequential call — kept separate
-      // from the event save above so a quiz-save failure never undoes the
-      // event itself (matches how the module save below also treats quiz
-      // saving as a non-transactional follow-up step).
-      if (filledQuizCount === 10 && targetEventId) {
+      // Link/unlink the quiz as a second, sequential call — kept separate
+      // from the event save above so a link failure never undoes the event
+      // itself (matches how the module save below also treats the quiz link
+      // as a non-transactional follow-up step). Only standalone events own a
+      // direct link; course-linked events inherit theirs from the module.
+      if (!form.courseId && targetEventId) {
         try {
           await apiCall(`/admin/events/${targetEventId}/quiz`, {
             method: 'PUT',
-            body: JSON.stringify({ questions: form.quizQuestions }),
+            body: JSON.stringify({ quizId: form.quizId }),
           });
         } catch {
-          toast.error('Event saved, but the quiz failed to save — reopen Edit to retry.');
+          toast.error('Event saved, but the quiz link failed to save — reopen Edit to retry.');
         }
       }
 
@@ -1044,22 +1051,15 @@ export default function AdminDashboard() {
       feedbackLink: mod.feedbackLink || '',
       duration: mod.duration || '',
       order: String(mod.order ?? 0),
-      quizQuestions: buildEmptyQuizQuestions(),
+      quizId: null,
     });
     setShowModuleModal(true);
 
     if (selectedCourse) {
       apiCall(`/courses/${selectedCourse.id}/modules/${mod.id}/quiz`)
         .then((r) => {
-          const existing = r?.data?.questions;
-          if (Array.isArray(existing) && existing.length === 10) {
-            setModuleForm((prev) => ({
-              ...prev,
-              quizQuestions: existing.map((q: any) => ({
-                questionText: q.questionText, optionA: q.optionA, optionB: q.optionB,
-                optionC: q.optionC, optionD: q.optionD, correctOption: q.correctOption,
-              })),
-            }));
+          if (r?.data?.id) {
+            setModuleForm((prev) => ({ ...prev, quizId: r.data.id }));
           }
         })
         .catch(() => {});
@@ -1072,12 +1072,6 @@ export default function AdminDashboard() {
       return;
     }
     if (!selectedCourse || savingModule) return;
-
-    const filledQuizCount = countFilledQuizQuestions(moduleForm.quizQuestions);
-    if (filledQuizCount > 0 && filledQuizCount < 10) {
-      toast.error('Fill in all 10 in-built quiz questions, or leave all of them blank to skip it.');
-      return;
-    }
 
     try {
       setSavingModule(true);
@@ -1106,17 +1100,17 @@ export default function AdminDashboard() {
         toast.success('Module created!');
       }
 
-      // Saved once per-module, at module-creation/edit time — this is what
+      // Linked once per-module, at module-creation/edit time — this is what
       // lets every per-batch Event instantiated from this module reuse the
-      // same 10 questions instead of the admin re-entering them each time.
-      if (filledQuizCount === 10 && targetModuleId) {
+      // same quiz instead of the admin re-linking it each time.
+      if (targetModuleId) {
         try {
           await apiCall(`/courses/${selectedCourse.id}/modules/${targetModuleId}/quiz`, {
             method: 'PUT',
-            body: JSON.stringify({ questions: moduleForm.quizQuestions }),
+            body: JSON.stringify({ quizId: moduleForm.quizId }),
           });
         } catch {
-          toast.error('Module saved, but the quiz failed to save — reopen Edit to retry.');
+          toast.error('Module saved, but the quiz link failed to save — reopen Edit to retry.');
         }
       }
 
@@ -1189,9 +1183,9 @@ export default function AdminDashboard() {
       maxVolunteers: '',
       registrationMode: 'open',
       // This event inherits its quiz from the module (courseModuleId set
-      // above) — the builder stays hidden in EventModal since form.courseId
+      // above) — the picker stays hidden in EventModal since form.courseId
       // is set, so this is just satisfying EventFormData's shape.
-      quizQuestions: buildEmptyQuizQuestions(),
+      quizId: null,
     });
 
     // Open modal after state is set
@@ -1212,6 +1206,7 @@ export default function AdminDashboard() {
     { id: 'roles', label: 'Roles', icon: Shield },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'videos', label: 'Videos', icon: Play },
+    { id: 'forms', label: 'Forms', icon: FileQuestion },
   ];
 
   return (
@@ -1347,6 +1342,9 @@ export default function AdminDashboard() {
 
           {/* Videos Tab */}
           {activeTab === 'videos' && <VideosTab videos={videos} videosLoading={videosLoading} setShowVideoModal={setShowVideoModal} handleDeleteVideo={handleDeleteVideo} courses={courses} bulkEnrollCourseId={bulkEnrollCourseId} setBulkEnrollCourseId={setBulkEnrollCourseId} bulkEnrollEmails={bulkEnrollEmails} setBulkEnrollEmails={setBulkEnrollEmails} bulkEnrolling={bulkEnrolling} handleBulkEnroll={handleBulkEnroll} />}
+
+          {/* Forms Tab — reusable Quiz library */}
+          {activeTab === 'forms' && <FormsTab quizzes={quizzes} quizzesLoading={quizzesLoading} onQuizCreated={handleQuizCreated} onUpdateQuiz={handleUpdateQuiz} onDeleteQuiz={handleDeleteQuiz} />}
         </div>
       </div>
 
@@ -1354,13 +1352,13 @@ export default function AdminDashboard() {
       <VideoModal showVideoModal={showVideoModal} setShowVideoModal={setShowVideoModal} videoForm={videoForm} setVideoForm={setVideoForm} handleSaveVideo={handleSaveVideo} savingVideo={savingVideo} />
 
       {/* Create/Edit Event Modal */}
-      <EventModal showModal={showModal} setShowModal={setShowModal} editingEvent={editingEvent} form={form} setForm={setForm} courses={courses} modulesForEvent={modulesForEvent} setModulesForEvent={setModulesForEvent} instructors={instructors} associateInstructors={associateInstructors} handleSave={handleSave} saving={saving} />
+      <EventModal showModal={showModal} setShowModal={setShowModal} editingEvent={editingEvent} form={form} setForm={setForm} courses={courses} modulesForEvent={modulesForEvent} setModulesForEvent={setModulesForEvent} instructors={instructors} associateInstructors={associateInstructors} handleSave={handleSave} saving={saving} quizzes={quizzes} onQuizCreated={handleQuizCreated} />
 
       {/* Create/Edit Course Modal */}
       <CourseModal showCourseModal={showCourseModal} setShowCourseModal={setShowCourseModal} editingCourse={editingCourse} courseForm={courseForm} setCourseForm={setCourseForm} handleSaveCourse={handleSaveCourse} savingCourse={savingCourse} />
 
       {/* Create/Edit Module Modal */}
-      <ModuleModal showModuleModal={showModuleModal} setShowModuleModal={setShowModuleModal} editingModule={editingModule} selectedCourse={selectedCourse} moduleForm={moduleForm} setModuleForm={setModuleForm} handleSaveModule={handleSaveModule} savingModule={savingModule} />
+      <ModuleModal showModuleModal={showModuleModal} setShowModuleModal={setShowModuleModal} editingModule={editingModule} selectedCourse={selectedCourse} moduleForm={moduleForm} setModuleForm={setModuleForm} handleSaveModule={handleSaveModule} savingModule={savingModule} quizzes={quizzes} onQuizCreated={handleQuizCreated} />
 
       {/* Delete Confirmation Modal */}
       <DeleteModal showDeleteModal={showDeleteModal} setShowDeleteModal={setShowDeleteModal} eventToDelete={eventToDelete} setEventToDelete={setEventToDelete} confirmDelete={confirmDelete} deleting={deleting} />

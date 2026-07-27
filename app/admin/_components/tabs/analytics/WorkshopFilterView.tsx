@@ -314,7 +314,7 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  {['Workshop Session', 'Assigned Conductor', 'Check-In', 'Passed', 'Failed', 'Avg Rating', ''].map((h) => (
+                  {['Workshop Session', 'Assigned Conductor', 'Batch', 'Date', 'Time', 'Check-In', 'Passed', 'Failed', 'Avg Rating', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -322,7 +322,7 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-white/30">No completed workshops match the current filter</td>
+                    <td colSpan={10} className="text-center py-12 text-white/30">No completed workshops match the current filter</td>
                   </tr>
                 ) : rows.map((row, i) => {
                   const passed = row.totalAttended || 0;
@@ -330,6 +330,7 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
                     (s: any) => s.quizCompleted && s.attendanceStatus !== 'PRESENT',
                   ).length;
                   const checkIn = passed + failed;
+                  const timeFmt: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
                   return (
                     <tr
                       key={i}
@@ -341,6 +342,15 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
                         <p className="text-white/35 text-[10px] mt-0.5">{row.courseName}</p>
                       </td>
                       <td className="px-4 py-3 text-white/60">{row.associateInstructorName !== '—' ? row.associateInstructorName : row.instructorName}</td>
+                      <td className="px-4 py-3 text-white/60 whitespace-nowrap">{row.batch || '—'}</td>
+                      <td className="px-4 py-3 text-white/60 whitespace-nowrap">
+                        {row.date ? new Date(row.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-white/60 whitespace-nowrap">
+                        {row.date && row.endAt
+                          ? `${new Date(row.date).toLocaleTimeString('en-IN', timeFmt)} – ${new Date(row.endAt).toLocaleTimeString('en-IN', timeFmt)}`
+                          : row.date ? new Date(row.date).toLocaleTimeString('en-IN', timeFmt) : '—'}
+                      </td>
                       <td className="px-4 py-3 text-white/70 font-semibold">{checkIn > 0 ? `${checkIn} Stud` : '—'}</td>
                       <td className="px-4 py-3">
                         <span className="text-emerald-400 font-semibold">{passed > 0 ? `${passed} Users` : '—'}</span>

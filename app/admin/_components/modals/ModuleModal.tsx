@@ -2,8 +2,8 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import type { QuizQuestionForm } from '@/types';
-import QuizQuestionBuilder from '@/components/QuizQuestionBuilder';
+import type { QuizLibraryItem } from '@/types';
+import QuizLinkPicker from '../QuizLinkPicker';
 
 interface ModuleFormData {
   title: string;
@@ -13,7 +13,7 @@ interface ModuleFormData {
   feedbackLink: string;
   duration: string;
   order: string;
-  quizQuestions: QuizQuestionForm[];
+  quizId: string | null;
 }
 
 interface ModuleModalProps {
@@ -25,6 +25,8 @@ interface ModuleModalProps {
   setModuleForm: (form: ModuleFormData) => void;
   handleSaveModule: () => void;
   savingModule: boolean;
+  quizzes: QuizLibraryItem[];
+  onQuizCreated: (quiz: QuizLibraryItem) => void;
 }
 
 export default function ModuleModal({
@@ -36,6 +38,8 @@ export default function ModuleModal({
   setModuleForm,
   handleSaveModule,
   savingModule,
+  quizzes,
+  onQuizCreated,
 }: ModuleModalProps) {
   return (
     <AnimatePresence>
@@ -143,9 +147,12 @@ export default function ModuleModal({
                 </div>
               </div>
 
-              <QuizQuestionBuilder
-                questions={moduleForm.quizQuestions}
-                onChange={(quizQuestions) => setModuleForm({ ...moduleForm, quizQuestions })}
+              <QuizLinkPicker
+                quizId={moduleForm.quizId}
+                onChange={(quizId) => setModuleForm({ ...moduleForm, quizId })}
+                quizzes={quizzes}
+                onQuizCreated={onQuizCreated}
+                suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Quiz` : ''}
               />
             </div>
 

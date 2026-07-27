@@ -164,6 +164,18 @@ export interface QuizQuestionForm {
   correctOption: QuizOptionKey;
 }
 
+// One quiz from the reusable Forms library (GET /quiz-library). A quiz can be
+// linked to many CourseModules and/or Events at once — _count reflects how
+// widely it's currently in use, shown as a usage badge in the Forms tab.
+export interface QuizLibraryItem {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  questions?: QuizQuestionForm[];
+  _count?: { questions: number; courseModules: number; events: number };
+}
+
 // Student-facing question shape — no correctOption, the answer key is
 // stripped server-side before this ever reaches the client.
 export interface QuizStudentQuestion {
@@ -259,6 +271,7 @@ export interface WorkshopAnalyticsRow {
   associateInstructorId: string | null;
   volunteerNames: string[];
   date: string;
+  endAt: string;
   batch: string;
   venue: string;
   totalRegistered: number;

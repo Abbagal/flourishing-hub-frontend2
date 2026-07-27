@@ -3,8 +3,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Wifi, WifiOff, X } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
-import type { Event, QuizQuestionForm } from '@/types';
-import QuizQuestionBuilder from '@/components/QuizQuestionBuilder';
+import type { Event, QuizLibraryItem } from '@/types';
+import QuizLinkPicker from '../QuizLinkPicker';
 
 type EventStatus = 'published' | 'completed' | 'draft' | 'cancelled';
 type RegistrationMode = 'compulsory' | 'optional' | 'open';
@@ -29,7 +29,7 @@ interface EventFormData {
   associateInstructorId: string;
   maxVolunteers: string;
   registrationMode: RegistrationMode;
-  quizQuestions: QuizQuestionForm[];
+  quizId: string | null;
 }
 
 const VENUE_PRESETS = [
@@ -64,6 +64,8 @@ interface EventModalProps {
   associateInstructors: any[];
   handleSave: () => void;
   saving: boolean;
+  quizzes: QuizLibraryItem[];
+  onQuizCreated: (quiz: QuizLibraryItem) => void;
 }
 
 export default function EventModal({
@@ -79,6 +81,8 @@ export default function EventModal({
   associateInstructors,
   handleSave,
   saving,
+  quizzes,
+  onQuizCreated,
 }: EventModalProps) {
   return (
     <AnimatePresence>
@@ -363,9 +367,12 @@ export default function EventModal({
                   is inherited from its CourseModule instead (authored once
                   in the Courses tab's module editor). */}
               {!form.courseId && (
-                <QuizQuestionBuilder
-                  questions={form.quizQuestions}
-                  onChange={(quizQuestions) => setForm({ ...form, quizQuestions })}
+                <QuizLinkPicker
+                  quizId={form.quizId}
+                  onChange={(quizId) => setForm({ ...form, quizId })}
+                  quizzes={quizzes}
+                  onQuizCreated={onQuizCreated}
+                  suggestedTitle={form.title ? `${form.title}-Quiz` : ''}
                 />
               )}
 

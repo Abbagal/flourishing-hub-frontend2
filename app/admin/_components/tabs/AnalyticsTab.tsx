@@ -123,7 +123,7 @@ export default function AnalyticsTab({
               setSelectedAnalyticsEvent={setSelectedAnalyticsEvent}
             />
           )}
-          {subTab === 'student' && <StudentFilterView rows={filteredRows} />}
+          {subTab === 'student' && <StudentFilterView rows={filteredRows} selectedCourse={filters.course} />}
           {subTab === 'instructor' && <InstructorFilterView rows={filteredRows} />}
         </>
       )}

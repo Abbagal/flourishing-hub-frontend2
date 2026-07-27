@@ -31,15 +31,20 @@ function ModuleStatusBadge({ status }: { status: ModuleStatus | undefined }) {
   );
 }
 
-export default function StudentFilterView({ rows }: { rows: WorkshopAnalyticsRow[] }) {
+export default function StudentFilterView({ rows, selectedCourse }: { rows: WorkshopAnalyticsRow[]; selectedCourse?: string }) {
   const [selected, setSelected] = useState<StudentAggregateRow | null>(null);
 
   const students = useMemo(() => aggregateStudents(rows), [rows]);
 
-  // One column per distinct module name present in the currently filtered rows.
+  // One column per distinct module name — only shown once a single course is
+  // selected, otherwise module names from every course would mix into one
+  // meaningless flat list.
   const moduleNames = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.moduleName).filter((m) => m && m !== '—'))).sort(),
-    [rows],
+    () =>
+      selectedCourse
+        ? Array.from(new Set(rows.map((r) => r.moduleName).filter((m) => m && m !== '—'))).sort()
+        : [],
+    [rows, selectedCourse],
   );
 
   const metrics = useMemo(() => {
@@ -173,7 +178,12 @@ export default function StudentFilterView({ rows }: { rows: WorkshopAnalyticsRow
       </div>
 
       <div>
-        <h4 className="text-sm font-semibold text-white mb-3">Student Roster</h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-white">Student Roster</h4>
+          {!selectedCourse && (
+            <p className="text-[11px] text-white/35">Select a course above to see per-module attendance columns</p>
+          )}
+        </div>
         <div className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

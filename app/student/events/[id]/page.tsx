@@ -12,7 +12,7 @@ import {
 import DashboardLayout from '@/components/DashboardLayout';
 import { apiCall } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
-import { isEventLive, isEventLiveOrGrace, isGracePeriodActive, getGraceSecondsRemaining, isEventUpcoming, isRegistrationOpen, isPastEventMidpoint } from '@/lib/dateUtils';
+import { isEventLive, isEventLiveOrGrace, isGracePeriodActive, getGraceSecondsRemaining, isEventUpcoming, isRegistrationOpen } from '@/lib/dateUtils';
 import { getRegisteredEventIds } from '@/lib/registrationUtils';
 import type { AuthPayload, QuizStudentView, QuizOptionKey } from '@/types';
 import toast from 'react-hot-toast';
@@ -36,6 +36,9 @@ export default function EventDetailPage() {
   const [feedbackHover, setFeedbackHover] = useState(0);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackCommentSubmitting, setFeedbackCommentSubmitting] = useState(false);
+  const [feedbackCommentSubmitted, setFeedbackCommentSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<{ totalMarks: number | null; totalMax: number | null; scores: any[] } | null>(null);
   const [myQuiz, setMyQuiz] = useState<QuizStudentView | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, QuizOptionKey>>({});
@@ -233,6 +236,10 @@ export default function EventDetailPage() {
           setFeedbackRating(myFeedbackResponse.data.eventRating);
           setFeedbackSubmitted(true);
         }
+        if (myFeedbackResponse?.data?.eventComment) {
+          setFeedbackComment(myFeedbackResponse.data.eventComment);
+          setFeedbackCommentSubmitted(true);
+        }
       } catch (error) {
         console.error('Failed to fetch event details:', error);
         toast.error('Failed to load event details');
@@ -281,6 +288,23 @@ export default function EventDetailPage() {
       toast.error(error?.message || 'Failed to submit rating.');
     } finally {
       setFeedbackSubmitting(false);
+    }
+  };
+
+  const handleFeedbackComment = async () => {
+    if (feedbackCommentSubmitting || !feedbackComment.trim()) return;
+    setFeedbackCommentSubmitting(true);
+    try {
+      await apiCall('/event-operations/' + eventId + '/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ eventComment: feedbackComment.trim() }),
+      });
+      setFeedbackCommentSubmitted(true);
+      toast.success('Feedback submitted!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to submit feedback.');
+    } finally {
+      setFeedbackCommentSubmitting(false);
     }
   };
 
@@ -336,22 +360,21 @@ export default function EventDetailPage() {
   const isLive = isEventLive(event.startAt || (event.date + 'T' + event.time), event.endAt);
   const isLiveOrGrace = isEventLiveOrGrace(event.startAt || (event.date + 'T' + event.time), event.endAt);
   const graceActive = isGracePeriodActive(event.endAt);
-  // Quiz link stays locked until the halfway point of the session (or the
-  // post-session grace window) — a fixed "30 min before end" gate broke for
-  // short sessions, since that point could fall before the session even
-  // started.
-  const eventStartRaw = event.startAt || (event.date + 'T' + event.time);
-  const quizWindowOpen = (isLive && isPastEventMidpoint(eventStartRaw, event.endAt)) || graceActive;
-  const quizOpensInSecs = (eventStartRaw && event.endAt)
-    ? Math.max(0, Math.floor((new Date(eventStartRaw).getTime() + (new Date(event.endAt).getTime() - new Date(eventStartRaw).getTime()) / 2 - Date.now()) / 1000))
-    : 0;
   // The in-built quiz (when one is configured) unlocks purely on the
   // server's attendance-verified signal — myQuiz is only ever fetched once
   // checkIn is VERIFIED, so myQuiz === null here means "not verified yet".
   // A module/event with no in-built quiz configured falls back to the
   // legacy time-window-gated external Google-Form link, unchanged.
   const hasInBuiltQuiz = myQuiz?.available === true;
-  const quizCardUnlocked = hasInBuiltQuiz ? !myQuiz!.locked : quizWindowOpen;
+  // No in-built quiz configured -> this step is a written feedback comment
+  // instead, unlocked the same way the quiz would be (attendance verified),
+  // not the old time-window gate.
+  const quizCardUnlocked = hasInBuiltQuiz ? !myQuiz!.locked : checkIn?.status === 'VERIFIED';
+  const step3Done = hasInBuiltQuiz ? Boolean(myQuiz?.alreadySubmitted) : feedbackCommentSubmitted;
+  // Word to use in step-3 copy — stays neutral until myQuiz has actually
+  // been fetched (only happens post-verification), since we can't commit to
+  // "quiz" vs "feedback" before we know which this event uses.
+  const step3Word = myQuiz === null ? 'quiz/feedback' : hasInBuiltQuiz ? 'quiz' : 'feedback';
   const isUpcoming = isEventUpcoming(event.startAt || (event.date + 'T' + event.time));
   // Registration allowed until 15 minutes after the event starts
   const regOpen = isRegistrationOpen(event.startAt || (event.date + 'T' + event.time));
@@ -364,8 +387,9 @@ export default function EventDetailPage() {
     const isRejected = checkIn?.status === 'REJECTED';
     const hasCheckedIn = !!checkIn;
 
-    // Step indicator: 0 = not checked in, 1 = pending, 2 = verified
-    const step = isVerified ? 2 : isPending ? 1 : 0;
+    // Step indicator: 0 = not checked in (or rejected), 1 = pending verification,
+    // 2 = verified but quiz/feedback not done, 3 = quiz/feedback done (rating up next)
+    const step = !hasCheckedIn || isRejected ? 0 : isPending ? 1 : !step3Done ? 2 : 3;
 
     return (
       <DashboardLayout user={user} loading={false}>
@@ -450,6 +474,7 @@ export default function EventDetailPage() {
             <div className="space-y-2 mb-4">
               {[
                 { label: 'Checked in', done: hasCheckedIn },
+                { label: myQuiz === null ? 'Quiz/feedback completed' : hasInBuiltQuiz ? 'Quiz completed' : 'Feedback submitted', done: step3Done },
                 { label: 'Rating given', done: feedbackSubmitted },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2 text-xs">
@@ -463,9 +488,13 @@ export default function EventDetailPage() {
               ))}
             </div>
 
-            {!feedbackSubmitted && (
+            {!step3Done ? (
+              <p className="text-xs text-white/50 mb-4">Complete the {step3Word} below first, then rate the session to unlock &quot;Exit the Session&quot;.</p>
+            ) : (
               <div className="mb-4">
-                <p className="text-xs text-white/50 mb-2">Rate this session to unlock &quot;Exit the Session&quot;:</p>
+                <p className="text-xs text-white/50 mb-2">
+                  {feedbackSubmitted ? 'Your rating (tap to change):' : 'Rate this session to unlock "Exit the Session":'}
+                </p>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -489,21 +518,21 @@ export default function EventDetailPage() {
 
             <button
               onClick={() => {
-                if (!feedbackSubmitted) {
-                  toast.error('Please rate this session before exiting.');
+                if (!step3Done || !feedbackSubmitted) {
+                  toast.error(!step3Done ? `Please complete the ${step3Word} first.` : 'Please rate this session before exiting.');
                   return;
                 }
                 router.push('/student/events');
               }}
-              disabled={!feedbackSubmitted}
-              title={!feedbackSubmitted ? 'Rate this session to exit' : undefined}
+              disabled={!step3Done || !feedbackSubmitted}
+              title={!step3Done || !feedbackSubmitted ? 'Complete the quiz/feedback and rating to exit' : undefined}
               className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                feedbackSubmitted
+                step3Done && feedbackSubmitted
                   ? 'btn-primary'
                   : 'bg-white/5 text-white/30 border border-white/10 cursor-not-allowed'
               }`}
             >
-              {!feedbackSubmitted && <Lock className="w-3.5 h-3.5" />}
+              {!(step3Done && feedbackSubmitted) && <Lock className="w-3.5 h-3.5" />}
               Exit the Session
             </button>
           </motion.div>
@@ -520,7 +549,8 @@ export default function EventDetailPage() {
           {[
             { label: 'Check In', icon: Fingerprint },
             { label: 'Verification', icon: Zap },
-            { label: 'Session Active', icon: ShieldCheck },
+            { label: 'Quiz / Feedback', icon: FileText },
+            { label: 'Rating', icon: Star },
           ].map((s, i) => (
             <div key={i} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
@@ -534,11 +564,11 @@ export default function EventDetailPage() {
                     : <s.icon className="w-4 h-4" />
                   }
                 </div>
-                <span className={`text-[10px] mt-1.5 font-medium transition-colors ${
+                <span className={`text-[10px] mt-1.5 font-medium transition-colors text-center ${
                   step > i ? 'text-emerald-400' : step === i ? 'text-primary' : 'text-white/25'
                 }`}>{s.label}</span>
               </div>
-              {i < 2 && (
+              {i < 3 && (
                 <div className="h-px flex-1 mx-1 transition-all duration-500" style={{
                   background: step > i ? 'rgba(16,185,129,0.6)' : 'rgba(255,255,255,0.08)'
                 }} />
@@ -639,53 +669,13 @@ export default function EventDetailPage() {
                 </div>
               </div>
 
-              {/* Feedback — moved before Quiz/Feedback so rating happens first */}
+              {/* Quiz / Feedback — step 3. Either an in-built quiz OR a written
+                  feedback comment, whichever this event is configured with —
+                  never both. Unlocks once attendance is verified. */}
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="glass-card rounded-2xl p-5"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Star className="w-4 h-4 text-yellow-400" />
-                  <h3 className="text-base font-bold text-white">Rate This Session</h3>
-                </div>
-                {feedbackSubmitted ? (
-                  <div className="flex flex-col items-center gap-2 py-2">
-                    <div className="flex gap-1">
-                      {[1,2,3,4,5].map(s => (
-                        <Star key={s} className={`w-7 h-7 ${s <= feedbackRating ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
-                      ))}
-                    </div>
-                    <p className="text-white/50 text-sm">Thanks for your feedback!</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <p className="text-white/40 text-sm">How was this session?</p>
-                    <div className="flex gap-2">
-                      {[1,2,3,4,5].map(s => (
-                        <motion.button
-                          key={s}
-                          whileHover={{ scale: 1.2 }}
-                          whileTap={{ scale: 0.9 }}
-                          onMouseEnter={() => setFeedbackHover(s)}
-                          onMouseLeave={() => setFeedbackHover(0)}
-                          onClick={() => handleFeedback(s)}
-                          disabled={feedbackSubmitting}
-                        >
-                          <Star className={`w-8 h-8 transition-all ${s <= (feedbackHover || feedbackRating) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-
-              {/* Quiz — UNLOCKED / Grace / Closed */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
                 className="dark-surface-card relative rounded-2xl overflow-hidden"
                 style={{
                   background: quizCardUnlocked
@@ -701,7 +691,12 @@ export default function EventDetailPage() {
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <FileText className={`w-5 h-5 ${quizCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
-                      <h2 className="text-white font-bold text-base">Session Quiz / Feedback</h2>
+                      {/* myQuiz stays null (unknown) until check-in is VERIFIED, since
+                          fetchMyQuiz() only runs once verified — don't commit to a
+                          "Quiz" vs "Feedback" label before we actually know which. */}
+                      <h2 className="text-white font-bold text-base">
+                        {myQuiz === null ? 'Session Quiz / Feedback' : hasInBuiltQuiz ? 'Session Quiz' : 'Session Feedback'} <span className="text-red-400">*</span>
+                      </h2>
                     </div>
                     {quizCardUnlocked ? (
                       <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
@@ -741,7 +736,7 @@ export default function EventDetailPage() {
                         {myQuiz!.questions?.map((q, qi) => (
                           <div key={q.id} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
                             <p className="text-white/85 text-sm font-medium mb-2.5">{qi + 1}. {q.questionText}</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="flex flex-col gap-2">
                               {QUIZ_OPTION_KEYS.map((key) => {
                                 const optionText = q[QUIZ_OPTION_FIELD[key]];
                                 const selected = quizAnswers[q.id] === key;
@@ -775,38 +770,89 @@ export default function EventDetailPage() {
                         </motion.button>
                       </div>
                     )
-                  ) : quizWindowOpen ? (
-                    /* ── Legacy Google-Form quiz link (no in-built quiz configured) ── */
-                    <>
-                      <p className="text-white/40 text-sm mb-1">Attendance verified — complete the quiz to earn your score.</p>
-                      {graceActive && (
-                        <p className="text-orange-400/80 text-xs mb-3 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Quiz window closes in {Math.floor(graceSecsLeft / 60)}:{String(graceSecsLeft % 60).padStart(2, '0')} — submit before time runs out
-                        </p>
-                      )}
-                      {event.quizLink ? (
-                        <a
-                          href={event.quizLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
+                  ) : quizCardUnlocked ? (
+                    /* ── No in-built quiz configured: written feedback instead ── */
+                    feedbackCommentSubmitted ? (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-white/60 text-sm">Your feedback:</p>
+                        <p className="text-white/80 text-sm p-3 rounded-lg bg-white/[0.03] border border-white/10">{feedbackComment}</p>
+                        <button
+                          onClick={() => setFeedbackCommentSubmitted(false)}
+                          className="text-primary text-xs font-medium hover:underline"
+                        >
+                          Edit feedback
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        <p className="text-white/40 text-sm">Attendance verified — share your feedback about this session.</p>
+                        <textarea
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                          placeholder="What did you think of this session?"
+                          rows={4}
+                          className="input-dark w-full px-3 py-2 rounded-lg text-sm resize-none"
+                        />
+                        <motion.button
+                          whileHover={{ scale: feedbackCommentSubmitting ? 1 : 1.02 }}
+                          whileTap={{ scale: feedbackCommentSubmitting ? 1 : 0.98 }}
+                          onClick={handleFeedbackComment}
+                          disabled={feedbackCommentSubmitting || !feedbackComment.trim()}
+                          className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60"
                           style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.3)' }}
                         >
-                          <ExternalLink className="w-4 h-4" /> Open Quiz
-                        </a>
-                      ) : (
-                        <p className="text-white/30 text-sm italic">No quiz configured for this session</p>
-                      )}
-                    </>
+                          {feedbackCommentSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</> : 'Submit Feedback'}
+                        </motion.button>
+                      </div>
+                    )
                   ) : (
                     <p className="text-white/30 text-sm mt-2 flex items-center gap-1.5">
                       <Lock className="w-3 h-3 shrink-0" />
-                      Quiz unlocks halfway through the session
-                      {quizOpensInSecs > 0 && ` — opens in ${Math.floor(quizOpensInSecs / 60)}m ${quizOpensInSecs % 60}s`}
+                      {myQuiz === null ? 'This unlocks once your attendance is verified.' : 'Feedback unlocks once your attendance is verified.'}
                     </p>
                   )}
                 </div>
+              </motion.div>
+
+              {/* Rating — step 4. Always a separate, mandatory, and repeatedly
+                  editable step, only reachable once quiz/feedback is done. */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="glass-card rounded-2xl p-5"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Star className="w-4 h-4 text-yellow-400" />
+                  <h3 className="text-base font-bold text-white">Rate This Session <span className="text-red-400">*</span></h3>
+                </div>
+                {!step3Done ? (
+                  <p className="text-white/30 text-sm flex items-center gap-1.5">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    Complete the {step3Word} above to unlock rating.
+                  </p>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-white/40 text-sm">
+                      {feedbackSubmitted ? 'You rated this session — tap to change:' : 'How was this session?'}
+                    </p>
+                    <div className="flex gap-2">
+                      {[1,2,3,4,5].map(s => (
+                        <motion.button
+                          key={s}
+                          whileHover={{ scale: 1.2 }}
+                          whileTap={{ scale: 0.9 }}
+                          onMouseEnter={() => setFeedbackHover(s)}
+                          onMouseLeave={() => setFeedbackHover(0)}
+                          onClick={() => handleFeedback(s)}
+                          disabled={feedbackSubmitting}
+                        >
+                          <Star className={`w-8 h-8 transition-all ${s <= (feedbackHover || feedbackRating) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
 
               {/* Pass/Fail badge after quiz score received */}
@@ -1225,25 +1271,19 @@ export default function EventDetailPage() {
                 <Star className="w-4 h-4 text-yellow-400" />
                 <h3 className="text-lg font-semibold text-white">Rate this Event</h3>
               </div>
-              {feedbackSubmitted ? (
-                <div className="text-center py-2">
-                  <div className="flex justify-center gap-1 mb-2">
-                    {[1,2,3,4,5].map(s => <Star key={s} className={`w-6 h-6 ${s <= feedbackRating ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />)}
-                  </div>
-                  <p className="text-white/60 text-sm">Your rating is saved</p>
-                </div>
-              ) : (
-                <div className="flex justify-center gap-2">
-                  {[1,2,3,4,5].map(s => (
-                    <motion.button key={s} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-                      onMouseEnter={() => setFeedbackHover(s)} onMouseLeave={() => setFeedbackHover(0)}
-                      onClick={() => handleFeedback(s)} disabled={feedbackSubmitting}
-                    >
-                      <Star className={`w-7 h-7 transition-all ${s <= (feedbackHover || feedbackRating) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
-                    </motion.button>
-                  ))}
-                </div>
+              {feedbackSubmitted && (
+                <p className="text-white/40 text-xs text-center mb-2">Your rating is saved — tap to change</p>
               )}
+              <div className="flex justify-center gap-2">
+                {[1,2,3,4,5].map(s => (
+                  <motion.button key={s} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                    onMouseEnter={() => setFeedbackHover(s)} onMouseLeave={() => setFeedbackHover(0)}
+                    onClick={() => handleFeedback(s)} disabled={feedbackSubmitting}
+                  >
+                    <Star className={`w-7 h-7 transition-all ${s <= (feedbackHover || feedbackRating) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
+                  </motion.button>
+                ))}
+              </div>
             </motion.div>
           )}
         </div>
