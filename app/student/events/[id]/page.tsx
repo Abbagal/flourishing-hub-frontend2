@@ -210,6 +210,7 @@ export default function EventDetailPage() {
           quizLink: ensureHttps(rawQuizLink),
           feedbackLink: ensureHttps(rawFeedbackLink),
           courseName: eventData.course?.name || null,
+          moduleName: eventData.courseModule?.title || null,
           batch: eventData.batch || null,
         };
 
@@ -478,8 +479,34 @@ export default function EventDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-white leading-tight">{event.title}</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white leading-tight break-words">{event.title}</h1>
           <p className="text-white/40 text-sm mt-1">Organized by <span className="text-white/60">{event.organizer}</span></p>
+
+          {/* Course / Module / Batch — shown clearly up top, before the
+              student has to scroll to the Attendance Confirmed card below,
+              so they always know exactly which session this is. */}
+          {(event.courseName || event.moduleName || event.batch) && (
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 mt-3 text-xs sm:text-sm">
+              {event.courseName && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 border border-violet-500/25 text-violet-300 font-medium">
+                  <BookOpen className="w-3.5 h-3.5 shrink-0" /> {event.courseName}
+                </span>
+              )}
+              {event.moduleName && (
+                <>
+                  <span className="text-white/20">›</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/70 font-medium">
+                    {event.moduleName}
+                  </span>
+                </>
+              )}
+              {event.batch && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-300 font-medium">
+                  <GraduationCap className="w-3.5 h-3.5 shrink-0" /> Batch {event.batch}
+                </span>
+              )}
+            </div>
+          )}
         </motion.div>
 
         {/* ── Post-session exit checklist — the session has ended (or the
@@ -489,7 +516,7 @@ export default function EventDetailPage() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-5 rounded-2xl border border-primary/25"
+            className="mb-6 p-4 sm:p-5 rounded-2xl border border-primary/25"
             style={{ background: 'rgba(108,99,255,0.06)' }}
           >
             <div className="flex items-start gap-3 mb-4">
@@ -587,7 +614,7 @@ export default function EventDetailPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex items-center gap-0 mb-7 p-4 rounded-2xl"
+          className="flex items-center gap-0 mb-7 p-3 sm:p-4 rounded-2xl overflow-hidden"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
         >
           {[
@@ -596,24 +623,24 @@ export default function EventDetailPage() {
             { label: 'Quiz / Feedback', icon: FileText },
             { label: 'Rating', icon: Star },
           ].map((s, i) => (
-            <div key={i} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${
+            <div key={i} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-500 ${
                   step > i ? 'bg-emerald-500 text-white' :
                   step === i ? 'bg-primary/20 border-2 border-primary text-primary' :
                   'bg-white/5 border border-white/10 text-white/20'
                 }`}>
                   {step > i
-                    ? <CheckCircle className="w-4 h-4" />
-                    : <s.icon className="w-4 h-4" />
+                    ? <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    : <s.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   }
                 </div>
-                <span className={`text-[10px] mt-1.5 font-medium transition-colors text-center ${
+                <span className={`text-[9px] sm:text-[10px] mt-1.5 font-medium transition-colors text-center leading-tight px-0.5 ${
                   step > i ? 'text-emerald-400' : step === i ? 'text-primary' : 'text-white/25'
                 }`}>{s.label}</span>
               </div>
               {i < 3 && (
-                <div className="h-px flex-1 mx-1 transition-all duration-500" style={{
+                <div className="h-px flex-1 mx-0.5 sm:mx-1 transition-all duration-500 min-w-[8px]" style={{
                   background: step > i ? 'rgba(16,185,129,0.6)' : 'rgba(255,255,255,0.08)'
                 }} />
               )}
@@ -636,7 +663,7 @@ export default function EventDetailPage() {
             >
               {/* Verified Hero */}
               <div
-                className="dark-surface-card relative rounded-2xl overflow-hidden p-6 lg:p-8"
+                className="dark-surface-card relative rounded-2xl overflow-hidden p-4 sm:p-6 lg:p-8"
                 style={{
                   background: 'linear-gradient(135deg, #061a0f 0%, #0a2016 50%, #061820 100%)',
                   border: '1px solid rgba(16,185,129,0.3)',
@@ -653,15 +680,15 @@ export default function EventDetailPage() {
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${isVerified ? 'bg-emerald-500/20 border border-emerald-500/40' : 'bg-amber-500/20 border border-amber-500/40'}`}
+                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 ${isVerified ? 'bg-emerald-500/20 border border-emerald-500/40' : 'bg-amber-500/20 border border-amber-500/40'}`}
                     >
                       {isVerified
-                        ? <ShieldCheck className="w-6 h-6 text-emerald-400" />
-                        : <Zap className="w-6 h-6 text-amber-400" />
+                        ? <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
+                        : <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
                       }
                     </motion.div>
-                    <div>
-                      <p className={`font-bold text-base ${isVerified ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    <div className="min-w-0">
+                      <p className={`font-bold text-sm sm:text-base ${isVerified ? 'text-emerald-400' : 'text-amber-400'}`}>
                         {isVerified ? 'Attendance Confirmed' : 'Checked In'}
                       </p>
                       <p className="text-white/40 text-xs">
@@ -671,29 +698,35 @@ export default function EventDetailPage() {
                   </div>
 
                   {/* Info chips */}
-                  <div className="flex flex-wrap gap-2.5">
+                  <div className="flex flex-wrap gap-2 sm:gap-2.5">
                     {event.courseName && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
-                        <BookOpen className="w-3.5 h-3.5 text-violet-400" />
+                      <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
+                        <BookOpen className="w-3.5 h-3.5 text-violet-400 shrink-0" />
                         <span className="text-white/70">{event.courseName}</span>
                       </div>
                     )}
+                    {event.moduleName && (
+                      <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
+                        <FileText className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                        <span className="text-white/70">{event.moduleName}</span>
+                      </div>
+                    )}
                     {event.batch && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
-                        <GraduationCap className="w-3.5 h-3.5 text-blue-400" />
+                      <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
+                        <GraduationCap className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                         <span className="text-white/70">{event.batch}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                       <span className="text-white/70">{event.venue}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
-                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
+                      <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       <span className="text-white/70">{formatTime(event.time)}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
-                      <Calendar className="w-3.5 h-3.5 text-primary" />
+                    <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 border border-white/8 text-xs">
+                      <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span className="text-white/70">{formatDate(event.date)}</span>
                     </div>
                   </div>
@@ -733,20 +766,24 @@ export default function EventDetailPage() {
                     boxShadow: quizCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
                   }}
                 >
-                  <div className="p-5 lg:p-6">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <FileText className={`w-5 h-5 ${quizCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
-                        <h2 className="text-white font-bold text-base">
+                  <div className="p-4 sm:p-5 lg:p-6">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className={`w-5 h-5 shrink-0 ${quizCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
+                        <h2 className="text-white font-bold text-base truncate">
                           Session Quiz <span className="text-red-400">*</span>
                         </h2>
                       </div>
-                      {quizCardUnlocked ? (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
+                      {myQuiz?.alreadySubmitted ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
+                          <CheckCircle className="w-3 h-3" /> SUBMITTED
+                        </span>
+                      ) : quizCardUnlocked ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
                           <CheckCircle className="w-3 h-3" /> UNLOCKED
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold shrink-0">
                           <Lock className="w-2.5 h-2.5" /> LOCKED
                         </span>
                       )}
@@ -831,20 +868,24 @@ export default function EventDetailPage() {
                     boxShadow: feedbackCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
                   }}
                 >
-                  <div className="p-5 lg:p-6">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <FileText className={`w-5 h-5 ${feedbackCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
-                        <h2 className="text-white font-bold text-base">
+                  <div className="p-4 sm:p-5 lg:p-6">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className={`w-5 h-5 shrink-0 ${feedbackCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
+                        <h2 className="text-white font-bold text-base truncate">
                           Session Feedback <span className="text-red-400">*</span>
                         </h2>
                       </div>
-                      {feedbackCardUnlocked ? (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
+                      {myFeedbackForm?.alreadySubmitted ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
+                          <CheckCircle className="w-3 h-3" /> SUBMITTED
+                        </span>
+                      ) : feedbackCardUnlocked ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
                           <CheckCircle className="w-3 h-3" /> UNLOCKED
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold shrink-0">
                           <Lock className="w-2.5 h-2.5" /> LOCKED
                         </span>
                       )}
@@ -945,11 +986,18 @@ export default function EventDetailPage() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="glass-card rounded-2xl p-5"
+                className="glass-card rounded-2xl p-4 sm:p-5"
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <Star className="w-4 h-4 text-yellow-400" />
-                  <h3 className="text-base font-bold text-white">Rate This Session <span className="text-red-400">*</span></h3>
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Star className="w-4 h-4 text-yellow-400 shrink-0" />
+                    <h3 className="text-base font-bold text-white truncate">Rate This Session <span className="text-red-400">*</span></h3>
+                  </div>
+                  {feedbackSubmitted && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
+                      <CheckCircle className="w-3 h-3" /> RATED
+                    </span>
+                  )}
                 </div>
                 {!step3Done ? (
                   <p className="text-white/30 text-sm flex items-center gap-1.5">
@@ -980,71 +1028,50 @@ export default function EventDetailPage() {
                 )}
               </motion.div>
 
-              {/* Pass/Fail badge after quiz score received */}
-              {quizScore && quizScore.totalMarks !== null && (() => {
+              {/* Legacy module-marks score (bulk-imported CSV marks, unrelated
+                  to the in-built Quiz library) — only shown when it ISN'T
+                  already covered by the Session Quiz card above, so the same
+                  score never appears twice on the page. */}
+              {!hasInBuiltQuiz && quizScore && quizScore.totalMarks !== null && (() => {
                 const passed = quizScore.totalMarks >= 3;
+                const pct = Math.round((quizScore.totalMarks / (quizScore.totalMax || 1)) * 100);
                 return (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="rounded-2xl p-4 flex items-center gap-3"
-                    style={passed
-                      ? { background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }
-                      : { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }
-                    }
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="dark-surface-card rounded-2xl p-4 sm:p-5"
+                    style={{ background: 'linear-gradient(135deg,#0a1628,#0d1f3c)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 0 25px rgba(99,102,241,0.08)' }}
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${passed ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-                      {passed
-                        ? <CheckCircle className="w-5 h-5 text-emerald-400" />
-                        : <AlertCircle className="w-5 h-5 text-red-400" />
-                      }
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Award className="w-5 h-5 text-indigo-400 shrink-0" />
+                        <h2 className="text-white font-bold text-base truncate">Module Score</h2>
+                      </div>
+                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${passed ? 'bg-emerald-500/15 border border-emerald-500/25 text-emerald-400' : 'bg-red-500/15 border border-red-500/25 text-red-400'}`}>
+                        {passed ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                        {passed ? 'Completed' : 'Below Minimum'}
+                      </span>
                     </div>
-                    <div>
-                      <p className={`font-bold text-sm ${passed ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {passed ? 'Workshop Completed' : 'Failed'}
-                      </p>
-                      <p className="text-white/40 text-xs mt-0.5">
-                        {passed
-                          ? `Score ${quizScore.totalMarks}/${quizScore.totalMax} — Attendance logged`
-                          : `Score ${quizScore.totalMarks}/${quizScore.totalMax} — Minimum score of 3 required`
-                        }
-                      </p>
+                    <div className="flex items-end gap-2 mb-3">
+                      <span className="text-4xl font-bold text-white">{quizScore.totalMarks}</span>
+                      <span className="text-white/40 text-lg mb-1">/ {quizScore.totalMax}</span>
                     </div>
+                    <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                        className="h-full rounded-full"
+                        style={{ background: 'linear-gradient(90deg,#6366f1,#818cf8)' }}
+                      />
+                    </div>
+                    <p className="text-white/40 text-xs mt-2">
+                      {pct}% score {!passed && '— minimum score of 3 required'}
+                    </p>
                   </motion.div>
                 );
               })()}
-
-              {/* Quiz Score */}
-              {quizScore && quizScore.totalMarks !== null && (
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="dark-surface-card rounded-2xl p-5"
-                  style={{ background: 'linear-gradient(135deg,#0a1628,#0d1f3c)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 0 25px rgba(99,102,241,0.08)' }}
-                >
-                  <div className="flex items-center gap-2 mb-4">
-                    <Award className="w-5 h-5 text-indigo-400" />
-                    <h2 className="text-white font-bold text-base">Quiz Score</h2>
-                  </div>
-                  <div className="flex items-end gap-2 mb-3">
-                    <span className="text-4xl font-bold text-white">{quizScore.totalMarks}</span>
-                    <span className="text-white/40 text-lg mb-1">/ {quizScore.totalMax}</span>
-                  </div>
-                  {/* Score bar */}
-                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.round((quizScore.totalMarks / (quizScore.totalMax || 1)) * 100)}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ background: 'linear-gradient(90deg,#6366f1,#818cf8)' }}
-                    />
-                  </div>
-                  <p className="text-white/40 text-xs mt-2">{Math.round((quizScore.totalMarks / (quizScore.totalMax || 1)) * 100)}% score</p>
-                </motion.div>
-              )}
 
               {/* About + Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1127,7 +1154,7 @@ export default function EventDetailPage() {
                     <div className={`absolute -top-16 right-1/4 w-64 h-64 rounded-full blur-3xl ${isPending ? 'bg-yellow-500/5' : 'bg-red-500/5'}`} />
                   </div>
 
-                  <div className="relative p-6 lg:p-8">
+                  <div className="relative p-4 sm:p-6 lg:p-8">
                     <AnimatePresence mode="wait">
                       {/* ── NOT CHECKED IN ── */}
                       {(!hasCheckedIn || isRejected) && (
@@ -1160,7 +1187,7 @@ export default function EventDetailPage() {
                             whileTap={{ scale: 0.97 }}
                             onClick={handleCheckIn}
                             disabled={checkingIn}
-                            className="relative flex flex-col items-center justify-center w-48 h-48 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="relative flex flex-col items-center justify-center w-36 h-36 sm:w-48 sm:h-48 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                             style={{
                               background: 'rgba(16,185,129,0.08)',
                               border: '2px solid rgba(16,185,129,0.4)',
@@ -1174,10 +1201,10 @@ export default function EventDetailPage() {
                               </>
                             )}
                             {checkingIn
-                              ? <Loader2 className="w-14 h-14 text-emerald-400 animate-spin" />
-                              : <Fingerprint className="w-14 h-14 text-emerald-400" />
+                              ? <Loader2 className="w-10 h-10 sm:w-14 sm:h-14 text-emerald-400 animate-spin" />
+                              : <Fingerprint className="w-10 h-10 sm:w-14 sm:h-14 text-emerald-400" />
                             }
-                            <span className="mt-3 text-emerald-400 font-bold text-base">
+                            <span className="mt-2 sm:mt-3 text-emerald-400 font-bold text-sm sm:text-base">
                               {checkingIn ? 'Checking in…' : 'Check In'}
                             </span>
                           </motion.button>
