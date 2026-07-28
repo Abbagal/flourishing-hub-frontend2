@@ -24,7 +24,14 @@ export function downloadCsv(data: Record<string, any>[], filename: string): bool
   if (data.length === 0) return false;
 
   const csvContent = toCsvContent(data);
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  // Excel (Windows) ignores the Blob's charset=utf-8 hint when a CSV is
+  // opened by double-click — without a UTF-8 byte-order-mark at the very
+  // start of the file, it falls back to the system codepage (Windows-1252),
+  // turning any non-ASCII character (e.g. the "—" this app uses for empty
+  // cells) into mojibake like "â€"". Prepending the BOM is what tells Excel
+  // specifically (most other tools ignore or already assume UTF-8) to
+  // decode the rest of the file as UTF-8.
+  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);
