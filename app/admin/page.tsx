@@ -16,7 +16,7 @@ import { formatDate, formatTime } from '@/lib/utils';
 import { isEventLive, isEventUpcoming, isEventPast, toLocalDateKey } from '@/lib/dateUtils';
 import { useNowTick } from '@/lib/useNowTick';
 import { downloadCsv } from '@/lib/csv';
-import type { Event, MemberDirectory, UserRole, QuizLibraryItem } from '@/types';
+import type { Event, MemberDirectory, UserRole, QuizLibraryItem, FeedbackLibraryItem } from '@/types';
 import toast from 'react-hot-toast';
 
 // Tab components
@@ -82,11 +82,14 @@ interface ModuleFormData {
   duration: string;
   order: string;
   quizId: string | null;
+  quizApplicable: boolean;
+  feedbackApplicable: boolean;
+  feedbackFormId: string | null;
 }
 
 const emptyModuleForm: ModuleFormData = {
   title: '', description: '', posterUrl: '', quizLink: '', feedbackLink: '', duration: '', order: '0',
-  quizId: null,
+  quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null,
 };
 
 interface FilterState {
@@ -119,6 +122,9 @@ interface EventFormData {
   maxVolunteers: string;
   registrationMode: 'compulsory' | 'optional' | 'open';
   quizId: string | null;
+  quizApplicable: boolean;
+  feedbackApplicable: boolean;
+  feedbackFormId: string | null;
 }
 
 const emptyForm: EventFormData = {
@@ -127,7 +133,7 @@ const emptyForm: EventFormData = {
   courseId: '', courseModuleId: '', batch: '', posterUrl: '', quizLink: '', feedbackLink: '',
   endTime: '', instructorId: '', associateInstructorId: '', maxVolunteers: '',
   registrationMode: 'open',
-  quizId: null,
+  quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null,
 };
 
 const ROLES: UserRole[] = ['student', 'instructor', 'admin', 'volunteer', 'associate-instructor'];
@@ -214,6 +220,8 @@ export default function AdminDashboard() {
   const [videosLoading, setVideosLoading] = useState(false);
   const [quizzes, setQuizzes] = useState<QuizLibraryItem[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<FeedbackLibraryItem[]>([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [savingVideo, setSavingVideo] = useState(false);
   const [videoForm, setVideoForm] = useState({ title: '', description: '', youtubeUrl: '', thumbnailUrl: '', duration: '', category: 'WELLNESS', tags: '' });
@@ -325,7 +333,7 @@ export default function AdminDashboard() {
 
       // Phase 1: All fast data in parallel (excludes the slow events query)
       try {
-        const [userResult, dashboardResult, membersResult, volunteersResult, pendingResult, coursesResult, quizzesResult] =
+        const [userResult, dashboardResult, membersResult, volunteersResult, pendingResult, coursesResult, quizzesResult, feedbacksResult] =
           await Promise.allSettled([
             getCurrentUser(),
             apiCall('/admin/dashboard'),
@@ -334,6 +342,7 @@ export default function AdminDashboard() {
             apiCall('/admin/pending-approvals'),
             apiCall('/courses'),
             apiCall('/quiz-library'),
+            apiCall('/feedback-library'),
           ]);
 
         if (userResult.status === 'fulfilled') {
@@ -363,6 +372,7 @@ export default function AdminDashboard() {
         if (pendingResult.status === 'fulfilled') setPendingUsers(pendingResult.value?.data || []);
         if (coursesResult.status === 'fulfilled') setCourses(coursesResult.value?.data || []);
         if (quizzesResult.status === 'fulfilled') setQuizzes(quizzesResult.value?.data || []);
+        if (feedbacksResult.status === 'fulfilled') setFeedbacks(feedbacksResult.value?.data || []);
       } catch (error) {
         console.error('❌ Error fetching dashboard data:', error);
       } finally {
@@ -390,11 +400,12 @@ export default function AdminDashboard() {
     fetchVideos();
   }, [activeTab]);
 
-  // Re-fetch quizzes when the Forms tab is opened (kept fresh — page-load
-  // fetch above only covers the initial mount).
+  // Re-fetch quizzes/feedback forms when the Forms tab is opened (kept
+  // fresh — page-load fetch above only covers the initial mount).
   useEffect(() => {
     if (activeTab !== 'forms') return;
     refreshQuizzes();
+    refreshFeedbacks();
   }, [activeTab]);
 
   const handleSaveVideo = async () => {
@@ -445,6 +456,29 @@ export default function AdminDashboard() {
   const handleDeleteQuiz = async (id: string) => {
     await apiCall(`/quiz-library/${id}`, { method: 'DELETE' });
     setQuizzes(prev => prev.filter(q => q.id !== id));
+  };
+
+  const refreshFeedbacks = async () => {
+    setFeedbacksLoading(true);
+    try {
+      const res = await apiCall('/feedback-library');
+      setFeedbacks(res.data || []);
+    } catch { toast.error('Failed to load feedback forms'); }
+    finally { setFeedbacksLoading(false); }
+  };
+
+  const handleFeedbackCreated = (form: FeedbackLibraryItem) => {
+    setFeedbacks(prev => [form, ...prev]);
+  };
+
+  const handleUpdateFeedback = async (id: string, title: string, questions: any[]) => {
+    await apiCall(`/feedback-library/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions }) });
+    await refreshFeedbacks();
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    await apiCall(`/feedback-library/${id}`, { method: 'DELETE' });
+    setFeedbacks(prev => prev.filter(f => f.id !== id));
   };
 
   const handleBulkEnroll = async () => {
@@ -590,6 +624,9 @@ export default function AdminDashboard() {
       associateInstructorId: ev.associateInstructorId || '',
       maxVolunteers: ev.volunteersNeeded ? String(ev.volunteersNeeded) : '',
       quizId: null,
+      quizApplicable: Boolean(ev.quizApplicable),
+      feedbackApplicable: Boolean(ev.feedbackApplicable),
+      feedbackFormId: null,
     });
     if (ev.courseId) {
       const course = courses.find(c => c.id === ev.courseId);
@@ -598,12 +635,19 @@ export default function AdminDashboard() {
         apiCall(`/courses/${ev.courseId}/modules`).then(r => setModulesForEvent(r.data || [])).catch(() => {});
       }
     } else {
-      // Only a standalone/open-workshop event owns its own quiz link —
-      // a course-linked event inherits its quiz from courseModule instead.
+      // Only a standalone/open-workshop event owns its own quiz/feedback
+      // link — a course-linked event inherits both from courseModule instead.
       apiCall(`/admin/events/${ev.id}/quiz`)
         .then((r) => {
           if (r?.data?.id) {
             setForm((prev) => ({ ...prev, quizId: r.data.id }));
+          }
+        })
+        .catch(() => {});
+      apiCall(`/admin/events/${ev.id}/feedback`)
+        .then((r) => {
+          if (r?.data?.id) {
+            setForm((prev) => ({ ...prev, feedbackFormId: r.data.id }));
           }
         })
         .catch(() => {});
@@ -644,6 +688,7 @@ export default function AdminDashboard() {
         registrationMode: regModeMap[form.registrationMode] || 'OPEN',
         ...(form.quizLink && { quizLink: form.quizLink }),
         ...(form.feedbackLink && { feedbackLink: form.feedbackLink }),
+        ...(!form.courseId && { quizApplicable: form.quizApplicable, feedbackApplicable: form.feedbackApplicable }),
         ...(form.courseId && { courseId: form.courseId }),
         ...(form.courseModuleId && { courseModuleId: form.courseModuleId }),
         ...(form.batch && { batch: form.batch }),
@@ -706,6 +751,14 @@ export default function AdminDashboard() {
           });
         } catch {
           toast.error('Event saved, but the quiz link failed to save — reopen Edit to retry.');
+        }
+        try {
+          await apiCall(`/admin/events/${targetEventId}/feedback`, {
+            method: 'PUT',
+            body: JSON.stringify({ feedbackFormId: form.feedbackFormId }),
+          });
+        } catch {
+          toast.error('Event saved, but the feedback form link failed to save — reopen Edit to retry.');
         }
       }
 
@@ -1052,6 +1105,9 @@ export default function AdminDashboard() {
       duration: mod.duration || '',
       order: String(mod.order ?? 0),
       quizId: null,
+      quizApplicable: Boolean(mod.quizApplicable),
+      feedbackApplicable: Boolean(mod.feedbackApplicable),
+      feedbackFormId: null,
     });
     setShowModuleModal(true);
 
@@ -1060,6 +1116,13 @@ export default function AdminDashboard() {
         .then((r) => {
           if (r?.data?.id) {
             setModuleForm((prev) => ({ ...prev, quizId: r.data.id }));
+          }
+        })
+        .catch(() => {});
+      apiCall(`/courses/${selectedCourse.id}/modules/${mod.id}/feedback`)
+        .then((r) => {
+          if (r?.data?.id) {
+            setModuleForm((prev) => ({ ...prev, feedbackFormId: r.data.id }));
           }
         })
         .catch(() => {});
@@ -1083,6 +1146,8 @@ export default function AdminDashboard() {
         feedbackLink: moduleForm.feedbackLink || null,
         duration: moduleForm.duration,
         order: moduleForm.order ? parseInt(moduleForm.order) : 0,
+        quizApplicable: moduleForm.quizApplicable,
+        feedbackApplicable: moduleForm.feedbackApplicable,
       };
 
       let targetModuleId: string | null = editingModule?.id || null;
@@ -1111,6 +1176,14 @@ export default function AdminDashboard() {
           });
         } catch {
           toast.error('Module saved, but the quiz link failed to save — reopen Edit to retry.');
+        }
+        try {
+          await apiCall(`/courses/${selectedCourse.id}/modules/${targetModuleId}/feedback`, {
+            method: 'PUT',
+            body: JSON.stringify({ feedbackFormId: moduleForm.feedbackFormId }),
+          });
+        } catch {
+          toast.error('Module saved, but the feedback form link failed to save — reopen Edit to retry.');
         }
       }
 
@@ -1182,10 +1255,13 @@ export default function AdminDashboard() {
       associateInstructorId: '',
       maxVolunteers: '',
       registrationMode: 'open',
-      // This event inherits its quiz from the module (courseModuleId set
-      // above) — the picker stays hidden in EventModal since form.courseId
-      // is set, so this is just satisfying EventFormData's shape.
+      // This event inherits its quiz/feedback from the module (courseModuleId
+      // set above) — the toggles/pickers stay hidden in EventModal since
+      // form.courseId is set, so this is just satisfying EventFormData's shape.
       quizId: null,
+      quizApplicable: false,
+      feedbackApplicable: false,
+      feedbackFormId: null,
     });
 
     // Open modal after state is set
@@ -1344,7 +1420,7 @@ export default function AdminDashboard() {
           {activeTab === 'videos' && <VideosTab videos={videos} videosLoading={videosLoading} setShowVideoModal={setShowVideoModal} handleDeleteVideo={handleDeleteVideo} courses={courses} bulkEnrollCourseId={bulkEnrollCourseId} setBulkEnrollCourseId={setBulkEnrollCourseId} bulkEnrollEmails={bulkEnrollEmails} setBulkEnrollEmails={setBulkEnrollEmails} bulkEnrolling={bulkEnrolling} handleBulkEnroll={handleBulkEnroll} />}
 
           {/* Forms Tab — reusable Quiz library */}
-          {activeTab === 'forms' && <FormsTab quizzes={quizzes} quizzesLoading={quizzesLoading} onQuizCreated={handleQuizCreated} onUpdateQuiz={handleUpdateQuiz} onDeleteQuiz={handleDeleteQuiz} />}
+          {activeTab === 'forms' && <FormsTab quizzes={quizzes} quizzesLoading={quizzesLoading} onQuizCreated={handleQuizCreated} onUpdateQuiz={handleUpdateQuiz} onDeleteQuiz={handleDeleteQuiz} feedbacks={feedbacks} feedbacksLoading={feedbacksLoading} onFeedbackCreated={handleFeedbackCreated} onUpdateFeedback={handleUpdateFeedback} onDeleteFeedback={handleDeleteFeedback} />}
         </div>
       </div>
 
@@ -1352,13 +1428,13 @@ export default function AdminDashboard() {
       <VideoModal showVideoModal={showVideoModal} setShowVideoModal={setShowVideoModal} videoForm={videoForm} setVideoForm={setVideoForm} handleSaveVideo={handleSaveVideo} savingVideo={savingVideo} />
 
       {/* Create/Edit Event Modal */}
-      <EventModal showModal={showModal} setShowModal={setShowModal} editingEvent={editingEvent} form={form} setForm={setForm} courses={courses} modulesForEvent={modulesForEvent} setModulesForEvent={setModulesForEvent} instructors={instructors} associateInstructors={associateInstructors} handleSave={handleSave} saving={saving} quizzes={quizzes} onQuizCreated={handleQuizCreated} />
+      <EventModal showModal={showModal} setShowModal={setShowModal} editingEvent={editingEvent} form={form} setForm={setForm} courses={courses} modulesForEvent={modulesForEvent} setModulesForEvent={setModulesForEvent} instructors={instructors} associateInstructors={associateInstructors} handleSave={handleSave} saving={saving} quizzes={quizzes} onQuizCreated={handleQuizCreated} feedbacks={feedbacks} onFeedbackCreated={handleFeedbackCreated} />
 
       {/* Create/Edit Course Modal */}
       <CourseModal showCourseModal={showCourseModal} setShowCourseModal={setShowCourseModal} editingCourse={editingCourse} courseForm={courseForm} setCourseForm={setCourseForm} handleSaveCourse={handleSaveCourse} savingCourse={savingCourse} />
 
       {/* Create/Edit Module Modal */}
-      <ModuleModal showModuleModal={showModuleModal} setShowModuleModal={setShowModuleModal} editingModule={editingModule} selectedCourse={selectedCourse} moduleForm={moduleForm} setModuleForm={setModuleForm} handleSaveModule={handleSaveModule} savingModule={savingModule} quizzes={quizzes} onQuizCreated={handleQuizCreated} />
+      <ModuleModal showModuleModal={showModuleModal} setShowModuleModal={setShowModuleModal} editingModule={editingModule} selectedCourse={selectedCourse} moduleForm={moduleForm} setModuleForm={setModuleForm} handleSaveModule={handleSaveModule} savingModule={savingModule} quizzes={quizzes} onQuizCreated={handleQuizCreated} feedbacks={feedbacks} onFeedbackCreated={handleFeedbackCreated} />
 
       {/* Delete Confirmation Modal */}
       <DeleteModal showDeleteModal={showDeleteModal} setShowDeleteModal={setShowDeleteModal} eventToDelete={eventToDelete} setEventToDelete={setEventToDelete} confirmDelete={confirmDelete} deleting={deleting} />

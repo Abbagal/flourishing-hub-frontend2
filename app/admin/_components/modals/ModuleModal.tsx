@@ -2,8 +2,10 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import type { QuizLibraryItem } from '@/types';
+import type { QuizLibraryItem, FeedbackLibraryItem } from '@/types';
 import QuizLinkPicker from '../QuizLinkPicker';
+import FeedbackLinkPicker from '../FeedbackLinkPicker';
+import ApplicableToggle from '../ApplicableToggle';
 
 interface ModuleFormData {
   title: string;
@@ -14,6 +16,9 @@ interface ModuleFormData {
   duration: string;
   order: string;
   quizId: string | null;
+  quizApplicable: boolean;
+  feedbackApplicable: boolean;
+  feedbackFormId: string | null;
 }
 
 interface ModuleModalProps {
@@ -27,6 +32,8 @@ interface ModuleModalProps {
   savingModule: boolean;
   quizzes: QuizLibraryItem[];
   onQuizCreated: (quiz: QuizLibraryItem) => void;
+  feedbacks: FeedbackLibraryItem[];
+  onFeedbackCreated: (form: FeedbackLibraryItem) => void;
 }
 
 export default function ModuleModal({
@@ -40,6 +47,8 @@ export default function ModuleModal({
   savingModule,
   quizzes,
   onQuizCreated,
+  feedbacks,
+  onFeedbackCreated,
 }: ModuleModalProps) {
   return (
     <AnimatePresence>
@@ -147,13 +156,38 @@ export default function ModuleModal({
                 </div>
               </div>
 
-              <QuizLinkPicker
-                quizId={moduleForm.quizId}
-                onChange={(quizId) => setModuleForm({ ...moduleForm, quizId })}
-                quizzes={quizzes}
-                onQuizCreated={onQuizCreated}
-                suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Quiz` : ''}
-              />
+              <div className="flex gap-3">
+                <ApplicableToggle
+                  label="Quiz applicable"
+                  checked={moduleForm.quizApplicable}
+                  onChange={(checked) => setModuleForm({ ...moduleForm, quizApplicable: checked, ...(checked ? {} : { quizId: null }) })}
+                />
+                <ApplicableToggle
+                  label="Feedback applicable"
+                  checked={moduleForm.feedbackApplicable}
+                  onChange={(checked) => setModuleForm({ ...moduleForm, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null }) })}
+                />
+              </div>
+
+              {moduleForm.quizApplicable && (
+                <QuizLinkPicker
+                  quizId={moduleForm.quizId}
+                  onChange={(quizId) => setModuleForm({ ...moduleForm, quizId })}
+                  quizzes={quizzes}
+                  onQuizCreated={onQuizCreated}
+                  suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Quiz` : ''}
+                />
+              )}
+
+              {moduleForm.feedbackApplicable && (
+                <FeedbackLinkPicker
+                  feedbackFormId={moduleForm.feedbackFormId}
+                  onChange={(feedbackFormId) => setModuleForm({ ...moduleForm, feedbackFormId })}
+                  feedbacks={feedbacks}
+                  onFormCreated={onFeedbackCreated}
+                  suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Feedback` : ''}
+                />
+              )}
             </div>
 
             <div className="px-6 pb-6 flex gap-3">

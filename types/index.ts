@@ -197,6 +197,54 @@ export interface QuizStudentView {
   questions?: QuizStudentQuestion[];
 }
 
+// Feedback library — same reference architecture as Quiz above, but with
+// flexible-length, mixed-type questions and no scoring/correct-option.
+export type FeedbackQuestionType = 'TEXT' | 'RATING' | 'MCQ';
+
+export interface FeedbackQuestionForm {
+  questionText: string;
+  type: FeedbackQuestionType;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+}
+
+// One form from the reusable Forms library (GET /feedback-library).
+export interface FeedbackLibraryItem {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  questions?: FeedbackQuestionForm[];
+  _count?: { questions: number; courseModules: number; events: number };
+}
+
+export interface FeedbackStudentQuestion {
+  id: string;
+  order: number;
+  questionText: string;
+  type: FeedbackQuestionType;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+}
+
+export interface FeedbackStudentAnswer {
+  questionId: string;
+  answerText?: string;
+  answerRating?: number;
+}
+
+export interface FeedbackFormStudentView {
+  available: boolean;
+  locked?: boolean;
+  alreadySubmitted?: boolean;
+  questions?: FeedbackStudentQuestion[];
+  answers?: FeedbackStudentAnswer[];
+}
+
 export interface StudentModule {
   id: string;
   title: string;

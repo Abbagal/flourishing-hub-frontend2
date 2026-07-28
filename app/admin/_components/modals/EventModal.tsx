@@ -3,8 +3,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Wifi, WifiOff, X } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
-import type { Event, QuizLibraryItem } from '@/types';
+import type { Event, QuizLibraryItem, FeedbackLibraryItem } from '@/types';
 import QuizLinkPicker from '../QuizLinkPicker';
+import FeedbackLinkPicker from '../FeedbackLinkPicker';
+import ApplicableToggle from '../ApplicableToggle';
 
 type EventStatus = 'published' | 'completed' | 'draft' | 'cancelled';
 type RegistrationMode = 'compulsory' | 'optional' | 'open';
@@ -30,6 +32,9 @@ interface EventFormData {
   maxVolunteers: string;
   registrationMode: RegistrationMode;
   quizId: string | null;
+  quizApplicable: boolean;
+  feedbackApplicable: boolean;
+  feedbackFormId: string | null;
 }
 
 const VENUE_PRESETS = [
@@ -66,6 +71,8 @@ interface EventModalProps {
   saving: boolean;
   quizzes: QuizLibraryItem[];
   onQuizCreated: (quiz: QuizLibraryItem) => void;
+  feedbacks: FeedbackLibraryItem[];
+  onFeedbackCreated: (form: FeedbackLibraryItem) => void;
 }
 
 export default function EventModal({
@@ -83,6 +90,8 @@ export default function EventModal({
   saving,
   quizzes,
   onQuizCreated,
+  feedbacks,
+  onFeedbackCreated,
 }: EventModalProps) {
   return (
     <AnimatePresence>
@@ -362,18 +371,45 @@ export default function EventModal({
                 </div>
               </div>
 
-              {/* In-built quiz — only a standalone/open workshop (no linked
-                  course) authors its own quiz; a course-linked event's quiz
-                  is inherited from its CourseModule instead (authored once
-                  in the Courses tab's module editor). */}
+              {/* In-built quiz/feedback — only a standalone/open workshop (no
+                  linked course) authors its own; a course-linked event's
+                  quiz/feedback is inherited from its CourseModule instead
+                  (authored once in the Courses tab's module editor). */}
               {!form.courseId && (
-                <QuizLinkPicker
-                  quizId={form.quizId}
-                  onChange={(quizId) => setForm({ ...form, quizId })}
-                  quizzes={quizzes}
-                  onQuizCreated={onQuizCreated}
-                  suggestedTitle={form.title ? `${form.title}-Quiz` : ''}
-                />
+                <>
+                  <div className="flex gap-3">
+                    <ApplicableToggle
+                      label="Quiz applicable"
+                      checked={form.quizApplicable}
+                      onChange={(checked) => setForm({ ...form, quizApplicable: checked, ...(checked ? {} : { quizId: null }) })}
+                    />
+                    <ApplicableToggle
+                      label="Feedback applicable"
+                      checked={form.feedbackApplicable}
+                      onChange={(checked) => setForm({ ...form, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null }) })}
+                    />
+                  </div>
+
+                  {form.quizApplicable && (
+                    <QuizLinkPicker
+                      quizId={form.quizId}
+                      onChange={(quizId) => setForm({ ...form, quizId })}
+                      quizzes={quizzes}
+                      onQuizCreated={onQuizCreated}
+                      suggestedTitle={form.title ? `${form.title}-Quiz` : ''}
+                    />
+                  )}
+
+                  {form.feedbackApplicable && (
+                    <FeedbackLinkPicker
+                      feedbackFormId={form.feedbackFormId}
+                      onChange={(feedbackFormId) => setForm({ ...form, feedbackFormId })}
+                      feedbacks={feedbacks}
+                      onFormCreated={onFeedbackCreated}
+                      suggestedTitle={form.title ? `${form.title}-Feedback` : ''}
+                    />
+                  )}
+                </>
               )}
 
               <div>

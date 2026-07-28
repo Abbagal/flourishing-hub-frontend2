@@ -14,11 +14,15 @@ import { apiCall } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
 import { isEventLive, isEventLiveOrGrace, isGracePeriodActive, getGraceSecondsRemaining, isEventUpcoming, isRegistrationOpen } from '@/lib/dateUtils';
 import { getRegisteredEventIds } from '@/lib/registrationUtils';
-import type { AuthPayload, QuizStudentView, QuizOptionKey } from '@/types';
+import type { AuthPayload, QuizStudentView, QuizOptionKey, FeedbackFormStudentView, FeedbackStudentAnswer } from '@/types';
 import toast from 'react-hot-toast';
 
 const QUIZ_OPTION_KEYS: QuizOptionKey[] = ['A', 'B', 'C', 'D'];
 const QUIZ_OPTION_FIELD: Record<QuizOptionKey, 'optionA' | 'optionB' | 'optionC' | 'optionD'> = {
+  A: 'optionA', B: 'optionB', C: 'optionC', D: 'optionD',
+};
+const FEEDBACK_MCQ_KEYS = ['A', 'B', 'C', 'D'] as const;
+const FEEDBACK_MCQ_FIELD: Record<typeof FEEDBACK_MCQ_KEYS[number], 'optionA' | 'optionB' | 'optionC' | 'optionD'> = {
   A: 'optionA', B: 'optionB', C: 'optionC', D: 'optionD',
 };
 
@@ -36,13 +40,13 @@ export default function EventDetailPage() {
   const [feedbackHover, setFeedbackHover] = useState(0);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const [feedbackComment, setFeedbackComment] = useState('');
-  const [feedbackCommentSubmitting, setFeedbackCommentSubmitting] = useState(false);
-  const [feedbackCommentSubmitted, setFeedbackCommentSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<{ totalMarks: number | null; totalMax: number | null; scores: any[] } | null>(null);
   const [myQuiz, setMyQuiz] = useState<QuizStudentView | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, QuizOptionKey>>({});
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
+  const [myFeedbackForm, setMyFeedbackForm] = useState<FeedbackFormStudentView | null>(null);
+  const [feedbackFormAnswers, setFeedbackFormAnswers] = useState<Record<string, FeedbackStudentAnswer>>({});
+  const [submittingFeedbackForm, setSubmittingFeedbackForm] = useState(false);
   const [graceSecsLeft, setGraceSecsLeft] = useState(0);
   const [showExitChecklist, setShowExitChecklist] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -85,6 +89,18 @@ export default function EventDetailPage() {
     }
   };
 
+  // Same server-authoritative unlock pattern as fetchMyQuiz above, for the
+  // in-built Feedback library form. Quiz and feedback form are independent —
+  // an event can have neither, either, or both applicable at once.
+  const fetchMyFeedbackForm = async () => {
+    try {
+      const res = await apiCall('/event-operations/' + eventId + '/feedback-form');
+      setMyFeedbackForm(res.data || null);
+    } catch {
+      // silent
+    }
+  };
+
   // Poll every 2s while PENDING so page transitions immediately when instructor verifies
   useEffect(() => {
     if (checkIn?.status === 'PENDING') {
@@ -103,6 +119,7 @@ export default function EventDetailPage() {
     if (checkIn?.status === 'VERIFIED') {
       fetchMyProgress();
       fetchMyQuiz();
+      fetchMyFeedbackForm();
       scorePollerRef.current = setInterval(() => fetchMyProgress(), 15000);
     } else {
       if (scorePollerRef.current) clearInterval(scorePollerRef.current);
@@ -236,10 +253,6 @@ export default function EventDetailPage() {
           setFeedbackRating(myFeedbackResponse.data.eventRating);
           setFeedbackSubmitted(true);
         }
-        if (myFeedbackResponse?.data?.eventComment) {
-          setFeedbackComment(myFeedbackResponse.data.eventComment);
-          setFeedbackCommentSubmitted(true);
-        }
       } catch (error) {
         console.error('Failed to fetch event details:', error);
         toast.error('Failed to load event details');
@@ -291,20 +304,29 @@ export default function EventDetailPage() {
     }
   };
 
-  const handleFeedbackComment = async () => {
-    if (feedbackCommentSubmitting || !feedbackComment.trim()) return;
-    setFeedbackCommentSubmitting(true);
+  const handleSubmitFeedbackForm = async () => {
+    if (!myFeedbackForm?.questions || submittingFeedbackForm) return;
+    const unanswered = myFeedbackForm.questions.filter((q) => {
+      const a = feedbackFormAnswers[q.id];
+      return q.type === 'RATING' ? a?.answerRating === undefined : !a?.answerText;
+    });
+    if (unanswered.length > 0) {
+      toast.error('Please answer all questions before submitting.');
+      return;
+    }
+    setSubmittingFeedbackForm(true);
     try {
-      await apiCall('/event-operations/' + eventId + '/feedback', {
+      const answers = myFeedbackForm.questions.map((q) => feedbackFormAnswers[q.id]);
+      await apiCall('/event-operations/' + eventId + '/feedback-form/submit', {
         method: 'POST',
-        body: JSON.stringify({ eventComment: feedbackComment.trim() }),
+        body: JSON.stringify({ answers }),
       });
-      setFeedbackCommentSubmitted(true);
       toast.success('Feedback submitted!');
+      await fetchMyFeedbackForm();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to submit feedback.');
     } finally {
-      setFeedbackCommentSubmitting(false);
+      setSubmittingFeedbackForm(false);
     }
   };
 
@@ -360,21 +382,32 @@ export default function EventDetailPage() {
   const isLive = isEventLive(event.startAt || (event.date + 'T' + event.time), event.endAt);
   const isLiveOrGrace = isEventLiveOrGrace(event.startAt || (event.date + 'T' + event.time), event.endAt);
   const graceActive = isGracePeriodActive(event.endAt);
-  // The in-built quiz (when one is configured) unlocks purely on the
-  // server's attendance-verified signal — myQuiz is only ever fetched once
-  // checkIn is VERIFIED, so myQuiz === null here means "not verified yet".
-  // A module/event with no in-built quiz configured falls back to the
-  // legacy time-window-gated external Google-Form link, unchanged.
+  // Quiz and Feedback Form are independently applicable/mandatory — an event
+  // can have neither, either, or both configured at once. Both unlock purely
+  // on the server's attendance-verified signal (myQuiz/myFeedbackForm are
+  // only ever fetched once checkIn is VERIFIED, so still being null here
+  // means "not verified yet").
   const hasInBuiltQuiz = myQuiz?.available === true;
-  // No in-built quiz configured -> this step is a written feedback comment
-  // instead, unlocked the same way the quiz would be (attendance verified),
-  // not the old time-window gate.
-  const quizCardUnlocked = hasInBuiltQuiz ? !myQuiz!.locked : checkIn?.status === 'VERIFIED';
-  const step3Done = hasInBuiltQuiz ? Boolean(myQuiz?.alreadySubmitted) : feedbackCommentSubmitted;
-  // Word to use in step-3 copy — stays neutral until myQuiz has actually
-  // been fetched (only happens post-verification), since we can't commit to
-  // "quiz" vs "feedback" before we know which this event uses.
-  const step3Word = myQuiz === null ? 'quiz/feedback' : hasInBuiltQuiz ? 'quiz' : 'feedback';
+  const hasFeedbackForm = myFeedbackForm?.available === true;
+  const quizCardUnlocked = hasInBuiltQuiz && !myQuiz!.locked;
+  const feedbackCardUnlocked = hasFeedbackForm && !myFeedbackForm!.locked;
+  const quizDone = !hasInBuiltQuiz || Boolean(myQuiz?.alreadySubmitted);
+  const feedbackDone = !hasFeedbackForm || Boolean(myFeedbackForm?.alreadySubmitted);
+  // Neither quiz nor feedback form configured -> this step is trivially done,
+  // nothing to complete.
+  const step3Done = quizDone && feedbackDone;
+  // Word to use in step-3 copy — stays neutral until both myQuiz and
+  // myFeedbackForm have actually been fetched (only happens post-verification).
+  const bothKnown = myQuiz !== null && myFeedbackForm !== null;
+  const step3Word = !bothKnown
+    ? 'quiz/feedback'
+    : hasInBuiltQuiz && hasFeedbackForm
+    ? 'quiz and feedback'
+    : hasInBuiltQuiz
+    ? 'quiz'
+    : hasFeedbackForm
+    ? 'feedback'
+    : 'quiz/feedback';
   const isUpcoming = isEventUpcoming(event.startAt || (event.date + 'T' + event.time));
   // Registration allowed until 15 minutes after the event starts
   const regOpen = isRegistrationOpen(event.startAt || (event.date + 'T' + event.time));
@@ -474,7 +507,18 @@ export default function EventDetailPage() {
             <div className="space-y-2 mb-4">
               {[
                 { label: 'Checked in', done: hasCheckedIn },
-                { label: myQuiz === null ? 'Quiz/feedback completed' : hasInBuiltQuiz ? 'Quiz completed' : 'Feedback submitted', done: step3Done },
+                ...(bothKnown && !hasInBuiltQuiz && !hasFeedbackForm
+                  ? []
+                  : [{
+                      label: !bothKnown
+                        ? 'Quiz/feedback completed'
+                        : hasInBuiltQuiz && hasFeedbackForm
+                        ? 'Quiz & feedback completed'
+                        : hasInBuiltQuiz
+                        ? 'Quiz completed'
+                        : 'Feedback submitted',
+                      done: step3Done,
+                    }]),
                 { label: 'Rating given', done: feedbackSubmitted },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2 text-xs">
@@ -669,49 +713,46 @@ export default function EventDetailPage() {
                 </div>
               </div>
 
-              {/* Quiz / Feedback — step 3. Either an in-built quiz OR a written
-                  feedback comment, whichever this event is configured with —
-                  never both. Unlocks once attendance is verified. */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="dark-surface-card relative rounded-2xl overflow-hidden"
-                style={{
-                  background: quizCardUnlocked
-                    ? 'linear-gradient(135deg, #1a0e04, #1f1408)'
-                    : 'linear-gradient(135deg, #111, #1a1a1a)',
-                  border: quizCardUnlocked
-                    ? '1px solid rgba(249,115,22,0.4)'
-                    : '1px solid rgba(255,255,255,0.07)',
-                  boxShadow: quizCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
-                }}
-              >
-                <div className="p-5 lg:p-6">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <FileText className={`w-5 h-5 ${quizCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
-                      {/* myQuiz stays null (unknown) until check-in is VERIFIED, since
-                          fetchMyQuiz() only runs once verified — don't commit to a
-                          "Quiz" vs "Feedback" label before we actually know which. */}
-                      <h2 className="text-white font-bold text-base">
-                        {myQuiz === null ? 'Session Quiz / Feedback' : hasInBuiltQuiz ? 'Session Quiz' : 'Session Feedback'} <span className="text-red-400">*</span>
-                      </h2>
+              {/* Quiz / Feedback — step 3. Quiz and Feedback Form are
+                  independently applicable — an event can have neither,
+                  either, or both, rendered as separate cards. Each unlocks
+                  once attendance is verified. */}
+              {hasInBuiltQuiz && (
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="dark-surface-card relative rounded-2xl overflow-hidden"
+                  style={{
+                    background: quizCardUnlocked
+                      ? 'linear-gradient(135deg, #1a0e04, #1f1408)'
+                      : 'linear-gradient(135deg, #111, #1a1a1a)',
+                    border: quizCardUnlocked
+                      ? '1px solid rgba(249,115,22,0.4)'
+                      : '1px solid rgba(255,255,255,0.07)',
+                    boxShadow: quizCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
+                  }}
+                >
+                  <div className="p-5 lg:p-6">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <FileText className={`w-5 h-5 ${quizCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
+                        <h2 className="text-white font-bold text-base">
+                          Session Quiz <span className="text-red-400">*</span>
+                        </h2>
+                      </div>
+                      {quizCardUnlocked ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
+                          <CheckCircle className="w-3 h-3" /> UNLOCKED
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold">
+                          <Lock className="w-2.5 h-2.5" /> LOCKED
+                        </span>
+                      )}
                     </div>
-                    {quizCardUnlocked ? (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
-                        <CheckCircle className="w-3 h-3" /> UNLOCKED
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold">
-                        <Lock className="w-2.5 h-2.5" /> LOCKED
-                      </span>
-                    )}
-                  </div>
 
-                  {hasInBuiltQuiz ? (
-                    /* ── In-built quiz ── */
-                    myQuiz!.locked ? (
+                    {myQuiz!.locked ? (
                       <p className="text-white/30 text-sm mt-2 flex items-center gap-1.5">
                         <Lock className="w-3 h-3 shrink-0" />
                         The quiz unlocks once your attendance is verified.
@@ -769,50 +810,134 @@ export default function EventDetailPage() {
                           {submittingQuiz ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</> : 'Submit Quiz'}
                         </motion.button>
                       </div>
-                    )
-                  ) : quizCardUnlocked ? (
-                    /* ── No in-built quiz configured: written feedback instead ── */
-                    feedbackCommentSubmitted ? (
-                      <div className="mt-2 space-y-2">
-                        <p className="text-white/60 text-sm">Your feedback:</p>
-                        <p className="text-white/80 text-sm p-3 rounded-lg bg-white/[0.03] border border-white/10">{feedbackComment}</p>
-                        <button
-                          onClick={() => setFeedbackCommentSubmitted(false)}
-                          className="text-primary text-xs font-medium hover:underline"
-                        >
-                          Edit feedback
-                        </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {hasFeedbackForm && (
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.12 }}
+                  className="dark-surface-card relative rounded-2xl overflow-hidden"
+                  style={{
+                    background: feedbackCardUnlocked
+                      ? 'linear-gradient(135deg, #1a0e04, #1f1408)'
+                      : 'linear-gradient(135deg, #111, #1a1a1a)',
+                    border: feedbackCardUnlocked
+                      ? '1px solid rgba(249,115,22,0.4)'
+                      : '1px solid rgba(255,255,255,0.07)',
+                    boxShadow: feedbackCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
+                  }}
+                >
+                  <div className="p-5 lg:p-6">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <FileText className={`w-5 h-5 ${feedbackCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
+                        <h2 className="text-white font-bold text-base">
+                          Session Feedback <span className="text-red-400">*</span>
+                        </h2>
                       </div>
+                      {feedbackCardUnlocked ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold">
+                          <CheckCircle className="w-3 h-3" /> UNLOCKED
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] font-bold">
+                          <Lock className="w-2.5 h-2.5" /> LOCKED
+                        </span>
+                      )}
+                    </div>
+
+                    {myFeedbackForm!.locked ? (
+                      <p className="text-white/30 text-sm mt-2 flex items-center gap-1.5">
+                        <Lock className="w-3 h-3 shrink-0" />
+                        Feedback unlocks once your attendance is verified.
+                      </p>
+                    ) : myFeedbackForm!.alreadySubmitted ? (
+                      <p className="text-white/60 text-sm mt-2 flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        Thanks — your feedback has been submitted.
+                      </p>
                     ) : (
-                      <div className="mt-2 space-y-3">
-                        <p className="text-white/40 text-sm">Attendance verified — share your feedback about this session.</p>
-                        <textarea
-                          value={feedbackComment}
-                          onChange={(e) => setFeedbackComment(e.target.value)}
-                          placeholder="What did you think of this session?"
-                          rows={4}
-                          className="input-dark w-full px-3 py-2 rounded-lg text-sm resize-none"
-                        />
+                      <div className="mt-2 space-y-4">
+                        <p className="text-white/40 text-sm">Attendance verified — answer all {myFeedbackForm!.questions?.length} question(s) and submit.</p>
+                        {myFeedbackForm!.questions?.map((q, qi) => (
+                          <div key={q.id} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
+                            <p className="text-white/85 text-sm font-medium mb-2.5">{qi + 1}. {q.questionText}</p>
+                            {q.type === 'TEXT' && (
+                              <textarea
+                                value={feedbackFormAnswers[q.id]?.answerText || ''}
+                                onChange={(e) => setFeedbackFormAnswers((prev) => ({ ...prev, [q.id]: { questionId: q.id, answerText: e.target.value } }))}
+                                placeholder="Your answer"
+                                rows={3}
+                                className="input-dark w-full px-3 py-2 rounded-lg text-sm resize-none"
+                              />
+                            )}
+                            {q.type === 'RATING' && (
+                              <div className="flex gap-2">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => setFeedbackFormAnswers((prev) => ({ ...prev, [q.id]: { questionId: q.id, answerRating: s } }))}
+                                  >
+                                    <Star
+                                      className={`w-6 h-6 transition-colors ${
+                                        s <= (feedbackFormAnswers[q.id]?.answerRating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'
+                                      }`}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {q.type === 'MCQ' && (
+                              <div className="flex flex-col gap-2">
+                                {FEEDBACK_MCQ_KEYS.map((key) => {
+                                  const optionText = q[FEEDBACK_MCQ_FIELD[key]];
+                                  if (!optionText) return null;
+                                  const selected = feedbackFormAnswers[q.id]?.answerText === key;
+                                  return (
+                                    <button
+                                      key={key}
+                                      type="button"
+                                      onClick={() => setFeedbackFormAnswers((prev) => ({ ...prev, [q.id]: { questionId: q.id, answerText: key } }))}
+                                      className={`text-left px-3 py-2 rounded-lg text-sm border transition-all ${
+                                        selected
+                                          ? 'bg-orange-500/15 border-orange-500/50 text-orange-300'
+                                          : 'bg-white/[0.02] border-white/10 text-white/60 hover:bg-white/5'
+                                      }`}
+                                    >
+                                      <span className="font-semibold mr-1.5">{key}.</span>{optionText}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                         <motion.button
-                          whileHover={{ scale: feedbackCommentSubmitting ? 1 : 1.02 }}
-                          whileTap={{ scale: feedbackCommentSubmitting ? 1 : 0.98 }}
-                          onClick={handleFeedbackComment}
-                          disabled={feedbackCommentSubmitting || !feedbackComment.trim()}
+                          whileHover={{ scale: submittingFeedbackForm ? 1 : 1.02 }}
+                          whileTap={{ scale: submittingFeedbackForm ? 1 : 0.98 }}
+                          onClick={handleSubmitFeedbackForm}
+                          disabled={submittingFeedbackForm}
                           className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60"
                           style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.3)' }}
                         >
-                          {feedbackCommentSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</> : 'Submit Feedback'}
+                          {submittingFeedbackForm ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</> : 'Submit Feedback'}
                         </motion.button>
                       </div>
-                    )
-                  ) : (
-                    <p className="text-white/30 text-sm mt-2 flex items-center gap-1.5">
-                      <Lock className="w-3 h-3 shrink-0" />
-                      {myQuiz === null ? 'This unlocks once your attendance is verified.' : 'Feedback unlocks once your attendance is verified.'}
-                    </p>
-                  )}
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {!hasInBuiltQuiz && !hasFeedbackForm && bothKnown && (
+                <div className="dark-surface-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm">
+                  No quiz or feedback form is required for this session.
                 </div>
-              </motion.div>
+              )}
 
               {/* Rating — step 4. Always a separate, mandatory, and repeatedly
                   editable step, only reachable once quiz/feedback is done. */}
