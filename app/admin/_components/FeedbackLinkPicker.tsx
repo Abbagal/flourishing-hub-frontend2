@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Link2, PlusCircle, X } from 'lucide-react';
+import { Link2, PlusCircle, X, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCall } from '@/lib/api';
 import type { FeedbackLibraryItem, FeedbackQuestionForm } from '@/types';
@@ -18,23 +18,36 @@ const isFeedbackQuestionFilled = (q: FeedbackQuestionForm) =>
 interface FeedbackLinkPickerProps {
   feedbackFormId: string | null;
   onChange: (feedbackFormId: string | null) => void;
+  feedbackLink: string;
+  onLinkChange: (link: string) => void;
   feedbacks: FeedbackLibraryItem[];
   onFormCreated: (form: FeedbackLibraryItem) => void;
   suggestedTitle: string;
 }
 
-// Links this module/event to an in-built feedback form from the reusable
-// Forms library — mirrors QuizLinkPicker exactly (select existing / create
-// new inline). The separate plain-text `feedbackLink` field (external URL)
-// stays a sibling input elsewhere in the modal — this picker only handles
-// the in-built form option.
-export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbacks, onFormCreated, suggestedTitle }: FeedbackLinkPickerProps) {
-  const [mode, setMode] = useState<'select' | 'create'>('select');
+// Same "exactly one source" pattern as QuizLinkPicker: an external Google
+// Form link, or an in-built feedback form (picked or authored inline) — the
+// three modes are mutually exclusive so a feedbackFormId and a feedbackLink
+// can never both be set at once.
+export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackLink, onLinkChange, feedbacks, onFormCreated, suggestedTitle }: FeedbackLinkPickerProps) {
+  const [mode, setMode] = useState<'link' | 'select' | 'create'>(feedbackLink ? 'link' : 'select');
   const [newTitle, setNewTitle] = useState(suggestedTitle);
   const [newQuestions, setNewQuestions] = useState<FeedbackQuestionForm[]>(buildEmptyFeedbackQuestions());
   const [creating, setCreating] = useState(false);
 
   const linkedForm = feedbacks.find((f) => f.id === feedbackFormId) || null;
+  const hasLink = Boolean(feedbackLink.trim());
+
+  const switchMode = (next: 'link' | 'select' | 'create') => {
+    if (mode === 'link' && next !== 'link' && hasLink) onLinkChange('');
+    setMode(next);
+  };
+
+  const handleClear = () => {
+    onChange(null);
+    onLinkChange('');
+    setMode('select');
+  };
 
   const handleCreate = async () => {
     if (!newTitle.trim()) {
@@ -66,13 +79,13 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbacks
   return (
     <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-white/60">In-Built Feedback Form</p>
-        {linkedForm && (
+        <p className="text-xs font-medium text-white/60">Feedback Source</p>
+        {(linkedForm || hasLink) && (
           <button
-            onClick={() => onChange(null)}
+            onClick={handleClear}
             className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300"
           >
-            <X className="w-3 h-3" /> Unlink
+            <X className="w-3 h-3" /> Clear
           </button>
         )}
       </div>
@@ -92,20 +105,33 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbacks
         <>
           <div className="flex gap-2">
             <button
-              onClick={() => setMode('select')}
+              onClick={() => switchMode('link')}
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${mode === 'link' ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-white/5 text-white/50 border border-white/10'}`}
+            >
+              <ExternalLink className="w-3 h-3" /> Google Form Link
+            </button>
+            <button
+              onClick={() => switchMode('select')}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${mode === 'select' ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-white/5 text-white/50 border border-white/10'}`}
             >
               Select Existing
             </button>
             <button
-              onClick={() => setMode('create')}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${mode === 'create' ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-white/5 text-white/50 border border-white/10'}`}
+              onClick={() => switchMode('create')}
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${mode === 'create' ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-white/5 text-white/50 border border-white/10'}`}
             >
               <PlusCircle className="w-3 h-3" /> Create New
             </button>
           </div>
 
-          {mode === 'select' ? (
+          {mode === 'link' ? (
+            <input
+              value={feedbackLink}
+              onChange={(e) => onLinkChange(e.target.value)}
+              placeholder="https://forms.gle/..."
+              className="input-dark w-full px-3 py-2 rounded-lg text-sm"
+            />
+          ) : mode === 'select' ? (
             <select
               value={feedbackFormId || ''}
               onChange={(e) => onChange(e.target.value || null)}
@@ -137,7 +163,7 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbacks
         </>
       )}
 
-      <p className="text-[10px] text-white/30">Feedback form content and question-editing lives in the Forms tab — editing it there updates it everywhere it&apos;s linked.</p>
+      <p className="text-[10px] text-white/30">In-built feedback content and question-editing lives in the Forms tab — editing it there updates it everywhere it&apos;s linked.</p>
     </div>
   );
 }

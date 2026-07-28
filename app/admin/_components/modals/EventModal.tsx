@@ -346,31 +346,6 @@ export default function EventModal({
                 </div>
               </div>
 
-              {/* Quiz/Feedback links — auto-filled when a course module is linked above,
-                  but always editable manually too, so this section is unconditional
-                  (the old `form.quizLink !== undefined` check was dead: emptyForm
-                  initializes both fields to '', so it was never false). */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-white/60 mb-1.5 block">Quiz Link</label>
-                  <input
-                    value={form.quizLink}
-                    onChange={(e) => setForm({ ...form, quizLink: e.target.value })}
-                    placeholder="https://forms.gle/..."
-                    className="input-dark w-full px-4 py-2.5 rounded-xl text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-white/60 mb-1.5 block">Feedback Link</label>
-                  <input
-                    value={form.feedbackLink}
-                    onChange={(e) => setForm({ ...form, feedbackLink: e.target.value })}
-                    placeholder="https://forms.gle/..."
-                    className="input-dark w-full px-4 py-2.5 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
               {/* In-built quiz/feedback — only a standalone/open workshop (no
                   linked course) authors its own; a course-linked event's
                   quiz/feedback is inherited from its CourseModule instead
@@ -381,12 +356,12 @@ export default function EventModal({
                     <ApplicableToggle
                       label="Quiz applicable"
                       checked={form.quizApplicable}
-                      onChange={(checked) => setForm({ ...form, quizApplicable: checked, ...(checked ? {} : { quizId: null }) })}
+                      onChange={(checked) => setForm({ ...form, quizApplicable: checked, ...(checked ? {} : { quizId: null, quizLink: '' }) })}
                     />
                     <ApplicableToggle
                       label="Feedback applicable"
                       checked={form.feedbackApplicable}
-                      onChange={(checked) => setForm({ ...form, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null }) })}
+                      onChange={(checked) => setForm({ ...form, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null, feedbackLink: '' }) })}
                     />
                   </div>
 
@@ -394,6 +369,8 @@ export default function EventModal({
                     <QuizLinkPicker
                       quizId={form.quizId}
                       onChange={(quizId) => setForm({ ...form, quizId })}
+                      quizLink={form.quizLink}
+                      onLinkChange={(quizLink) => setForm({ ...form, quizLink })}
                       quizzes={quizzes}
                       onQuizCreated={onQuizCreated}
                       suggestedTitle={form.title ? `${form.title}-Quiz` : ''}
@@ -404,6 +381,8 @@ export default function EventModal({
                     <FeedbackLinkPicker
                       feedbackFormId={form.feedbackFormId}
                       onChange={(feedbackFormId) => setForm({ ...form, feedbackFormId })}
+                      feedbackLink={form.feedbackLink}
+                      onLinkChange={(feedbackLink) => setForm({ ...form, feedbackLink })}
                       feedbacks={feedbacks}
                       onFormCreated={onFeedbackCreated}
                       suggestedTitle={form.title ? `${form.title}-Feedback` : ''}

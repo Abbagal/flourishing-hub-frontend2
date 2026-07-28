@@ -114,27 +114,6 @@ export default function ModuleModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-white/60 mb-1.5 block">Quiz Link (optional)</label>
-                  <input
-                    value={moduleForm.quizLink}
-                    onChange={(e) => setModuleForm({ ...moduleForm, quizLink: e.target.value })}
-                    placeholder="https://forms.gle/..."
-                    className="input-dark w-full px-4 py-2.5 rounded-xl text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-white/60 mb-1.5 block">Feedback Link (optional)</label>
-                  <input
-                    value={moduleForm.feedbackLink}
-                    onChange={(e) => setModuleForm({ ...moduleForm, feedbackLink: e.target.value })}
-                    placeholder="https://forms.gle/..."
-                    className="input-dark w-full px-4 py-2.5 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
                   <label className="text-xs font-medium text-white/60 mb-1.5 block">Duration (optional)</label>
                   <input
                     value={moduleForm.duration}
@@ -160,12 +139,12 @@ export default function ModuleModal({
                 <ApplicableToggle
                   label="Quiz applicable"
                   checked={moduleForm.quizApplicable}
-                  onChange={(checked) => setModuleForm({ ...moduleForm, quizApplicable: checked, ...(checked ? {} : { quizId: null }) })}
+                  onChange={(checked) => setModuleForm({ ...moduleForm, quizApplicable: checked, ...(checked ? {} : { quizId: null, quizLink: '' }) })}
                 />
                 <ApplicableToggle
                   label="Feedback applicable"
                   checked={moduleForm.feedbackApplicable}
-                  onChange={(checked) => setModuleForm({ ...moduleForm, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null }) })}
+                  onChange={(checked) => setModuleForm({ ...moduleForm, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null, feedbackLink: '' }) })}
                 />
               </div>
 
@@ -173,6 +152,8 @@ export default function ModuleModal({
                 <QuizLinkPicker
                   quizId={moduleForm.quizId}
                   onChange={(quizId) => setModuleForm({ ...moduleForm, quizId })}
+                  quizLink={moduleForm.quizLink}
+                  onLinkChange={(quizLink) => setModuleForm({ ...moduleForm, quizLink })}
                   quizzes={quizzes}
                   onQuizCreated={onQuizCreated}
                   suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Quiz` : ''}
@@ -183,6 +164,8 @@ export default function ModuleModal({
                 <FeedbackLinkPicker
                   feedbackFormId={moduleForm.feedbackFormId}
                   onChange={(feedbackFormId) => setModuleForm({ ...moduleForm, feedbackFormId })}
+                  feedbackLink={moduleForm.feedbackLink}
+                  onLinkChange={(feedbackLink) => setModuleForm({ ...moduleForm, feedbackLink })}
                   feedbacks={feedbacks}
                   onFormCreated={onFeedbackCreated}
                   suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Feedback` : ''}
