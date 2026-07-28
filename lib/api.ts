@@ -63,7 +63,25 @@ const refreshAccessToken = async (): Promise<string> => {
 // though it's the documented/supported way to call this function.
 type ApiCallOptions = Omit<RequestInit, 'body'> & { body?: RequestInit['body'] | Record<string, any> };
 
-export const apiCall = async (endpoint: string, options: ApiCallOptions = {}, _isRetry = false): Promise<any> => {
+// GET requests are safe to silently retry (no side effects); a mutating
+// request (POST/PUT/DELETE/PATCH) is NOT retried automatically here, since
+// re-sending it after an ambiguous timeout risks duplicating whatever it did
+// server-side (e.g. a double registration) if the original actually landed.
+const isSafeToRetry = (options: ApiCallOptions) => !options.method || options.method.toUpperCase() === 'GET';
+
+// Transient connectivity blips (a stalled fetch that hits our own 30s abort,
+// or the browser failing to even establish the connection) are common
+// against the current DB setup and previously surfaced as a silent "0
+// results" state with no visible error — e.g. a course's module list
+// rendering empty because the request timed out, not because the course
+// actually has no modules. Retrying a couple of times with a short backoff
+// before giving up turns a one-off blip into something the user never sees.
+const isTransientNetworkError = (error: unknown) =>
+  error instanceof Error && (error.name === 'AbortError' || error.message === 'Failed to fetch');
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const apiCall = async (endpoint: string, options: ApiCallOptions = {}, _isRetry = false, _attempt = 0): Promise<any> => {
   if (!API_URL) {
     throw new ApiError(500, 'API URL not configured');
   }
@@ -143,6 +161,14 @@ export const apiCall = async (endpoint: string, options: ApiCallOptions = {}, _i
   } catch (error) {
     clearTimeout(timeoutId);
     console.error(`❌ API Error for ${endpoint}:`, error);
+
+    if (isTransientNetworkError(error) && isSafeToRetry(options) && _attempt < 2) {
+      const delayMs = 1000 * (_attempt + 1); // 1s, then 2s
+      console.log(`🔁 Transient network error on ${endpoint} — retrying in ${delayMs}ms (attempt ${_attempt + 1}/2)...`);
+      await sleep(delayMs);
+      return apiCall(endpoint, options, _isRetry, _attempt + 1);
+    }
+
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError(408, 'Request timeout');
     }
