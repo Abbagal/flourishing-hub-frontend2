@@ -266,6 +266,10 @@ export default function AdminDashboard() {
     avgInstructorRating: event.avgInstructorRating ?? null,
     avgEventRating: event.avgEventRating ?? null,
     feedbackCount: event.feedbackCount ?? 0,
+    quizLink: event.quizLink || null,
+    feedbackLink: event.feedbackLink || null,
+    quizApplicable: Boolean(event.quizApplicable),
+    feedbackApplicable: Boolean(event.feedbackApplicable),
   }));
 
   // Handle URL hash navigation for tab switching
