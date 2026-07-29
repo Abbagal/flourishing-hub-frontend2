@@ -257,13 +257,20 @@ export default function EventModal({
               </div>
 
               <div>
-                <label className="text-xs font-medium text-white/60 mb-1.5 block">Target Batch / Cohort</label>
+                <label className="text-xs font-medium text-white/60 mb-1.5 block">
+                  Target Batch / Cohort{form.courseId ? ' *' : ''}
+                </label>
                 <input
                   value={form.batch}
                   onChange={(e) => setForm({ ...form, batch: e.target.value })}
                   placeholder="e.g. BTech 2024, MTech 2023"
                   className="input-dark w-full px-4 py-2.5 rounded-xl text-sm"
                 />
+                {form.courseId && !form.batch.trim() && (
+                  <p className="text-[10px] text-amber-400/80 mt-1">
+                    Required for a course workshop — left blank, this workshop won&apos;t be assigned to any students.
+                  </p>
+                )}
               </div>
 
               {/* Instructor & Associate Instructor */}

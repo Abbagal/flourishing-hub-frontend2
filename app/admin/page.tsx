@@ -665,6 +665,15 @@ export default function AdminDashboard() {
       return;
     }
 
+    // A course workshop with no batch has no bundle to belong to — leaving
+    // it blank used to silently pull in every student from other batch-less
+    // workshops of the same course instead of nobody. Catch it here instead
+    // of after the fact.
+    if (form.courseId && !form.batch.trim()) {
+      toast.error('Target Batch / Cohort is required for a course workshop — leaving it blank will assign it to no students.');
+      return;
+    }
+
     if (saving) {
       return; // Prevent double submission
     }
