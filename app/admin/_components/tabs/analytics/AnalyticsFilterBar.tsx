@@ -60,9 +60,21 @@ export default function AnalyticsFilterBar({ courses, analyticsData, filters, on
     return Array.from(names).sort();
   }, [analyticsData]);
 
+  // Batch narrows with Course + Topic (a module's batches are only ever the
+  // batches of workshops actually filed under it) — this was previously
+  // computed from the full unfiltered analyticsData, so picking a Topic
+  // (module) never shrank the Batch dropdown at all.
+  const batchOptionsFor = (course: string, topic: string) =>
+    Array.from(new Set(
+      analyticsData
+        .filter((r) => (!course || r.courseName === course) && (!topic || r.workshopName === topic))
+        .map((r) => r.batch)
+        .filter((v) => v && v !== '—'),
+    )).sort();
+
   const batchOptions = useMemo(
-    () => Array.from(new Set(analyticsData.map((r) => r.batch).filter((v) => v && v !== '—'))).sort(),
-    [analyticsData],
+    () => batchOptionsFor(filters.course, filters.topic),
+    [analyticsData, filters.course, filters.topic],
   );
 
   const departmentOptions = useMemo(() => {
@@ -87,8 +99,15 @@ export default function AnalyticsFilterBar({ courses, analyticsData, filters, on
         )}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <FilterSelect label="Course" value={filters.course} options={courseOptions} onChange={(v) => set({ course: v, topic: filters.topic && !topicOptions.includes(filters.topic) ? '' : filters.topic })} />
-        <FilterSelect label="Topic" value={filters.topic} options={topicOptions} onChange={(v) => set({ topic: v })} />
+        <FilterSelect label="Course" value={filters.course} options={courseOptions} onChange={(v) => {
+          const nextTopic = filters.topic && !topicOptions.includes(filters.topic) ? '' : filters.topic;
+          const nextBatch = filters.batch && !batchOptionsFor(v, nextTopic).includes(filters.batch) ? '' : filters.batch;
+          set({ course: v, topic: nextTopic, batch: nextBatch });
+        }} />
+        <FilterSelect label="Topic" value={filters.topic} options={topicOptions} onChange={(v) => {
+          const nextBatch = filters.batch && !batchOptionsFor(filters.course, v).includes(filters.batch) ? '' : filters.batch;
+          set({ topic: v, batch: nextBatch });
+        }} />
         <FilterSelect label="Instructor" value={filters.instructor} options={instructorOptions} onChange={(v) => set({ instructor: v })} />
         <FilterSelect label="Batch" value={filters.batch} options={batchOptions} onChange={(v) => set({ batch: v })} />
         <FilterSelect label="Department" value={filters.department} options={departmentOptions} onChange={(v) => set({ department: v })} />
