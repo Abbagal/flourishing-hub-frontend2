@@ -1,10 +1,11 @@
 'use client';
 
+import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { QuizLibraryItem, FeedbackLibraryItem } from '@/types';
-import QuizLinkPicker from '../QuizLinkPicker';
-import FeedbackLinkPicker from '../FeedbackLinkPicker';
+import QuizLinkPicker, { type QuizLinkPickerHandle } from '../QuizLinkPicker';
+import FeedbackLinkPicker, { type FeedbackLinkPickerHandle } from '../FeedbackLinkPicker';
 import ApplicableToggle from '../ApplicableToggle';
 
 interface ModuleFormData {
@@ -28,7 +29,7 @@ interface ModuleModalProps {
   selectedCourse: any | null;
   moduleForm: ModuleFormData;
   setModuleForm: (form: ModuleFormData) => void;
-  handleSaveModule: () => void;
+  handleSaveModule: (overrides?: { quizId?: string; feedbackFormId?: string }) => void;
   savingModule: boolean;
   quizzes: QuizLibraryItem[];
   onQuizCreated: (quiz: QuizLibraryItem) => void;
@@ -50,6 +51,27 @@ export default function ModuleModal({
   feedbacks,
   onFeedbackCreated,
 }: ModuleModalProps) {
+  const quizPickerRef = useRef<QuizLinkPickerHandle>(null);
+  const feedbackPickerRef = useRef<FeedbackLinkPickerHandle>(null);
+
+  // Flushes any unsaved "Create New" quiz/feedback draft before saving, so
+  // clicking this button instead of the picker's own "Save & Link" button
+  // never silently discards what the admin typed.
+  const handleSaveClick = async () => {
+    try {
+      const [flushedQuizId, flushedFeedbackId] = await Promise.all([
+        moduleForm.quizApplicable ? quizPickerRef.current?.flushPendingCreate() : Promise.resolve(null),
+        moduleForm.feedbackApplicable ? feedbackPickerRef.current?.flushPendingCreate() : Promise.resolve(null),
+      ]);
+      handleSaveModule({
+        quizId: flushedQuizId ?? undefined,
+        feedbackFormId: flushedFeedbackId ?? undefined,
+      });
+    } catch {
+      // flushPendingCreate already toasted the validation error — abort the save
+    }
+  };
+
   return (
     <AnimatePresence>
       {showModuleModal && (
@@ -150,6 +172,7 @@ export default function ModuleModal({
 
               {moduleForm.quizApplicable && (
                 <QuizLinkPicker
+                  ref={quizPickerRef}
                   quizId={moduleForm.quizId}
                   onChange={(quizId) => setModuleForm({ ...moduleForm, quizId })}
                   quizLink={moduleForm.quizLink}
@@ -162,6 +185,7 @@ export default function ModuleModal({
 
               {moduleForm.feedbackApplicable && (
                 <FeedbackLinkPicker
+                  ref={feedbackPickerRef}
                   feedbackFormId={moduleForm.feedbackFormId}
                   onChange={(feedbackFormId) => setModuleForm({ ...moduleForm, feedbackFormId })}
                   feedbackLink={moduleForm.feedbackLink}
@@ -184,7 +208,7 @@ export default function ModuleModal({
               <motion.button
                 whileHover={{ scale: savingModule ? 1 : 1.02 }}
                 whileTap={{ scale: savingModule ? 1 : 0.98 }}
-                onClick={handleSaveModule}
+                onClick={handleSaveClick}
                 disabled={savingModule}
                 className="flex-1 btn-primary py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >

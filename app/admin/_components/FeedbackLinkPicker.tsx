@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, forwardRef, useImperativeHandle } from 'react';
 import { Link2, PlusCircle, X, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCall } from '@/lib/api';
@@ -25,11 +25,27 @@ interface FeedbackLinkPickerProps {
   suggestedTitle: string;
 }
 
+export interface FeedbackLinkPickerHandle {
+  // Called by the parent modal right before it saves the module/event — if
+  // the admin typed a "Create New" draft but clicked the modal's main Save
+  // button instead of this picker's own "Save & Link" button, that draft
+  // would otherwise be silently discarded (the modal only ever persists
+  // whatever `feedbackFormId` already is, which is still null at that
+  // point). This flushes an untouched draft as a no-op, but actually
+  // creates+links a filled-in one so the modal's save can pick up the new
+  // id. Throws (with a toast already shown) if a non-empty draft fails
+  // validation, so the caller can abort the save rather than lose it.
+  flushPendingCreate: () => Promise<string | null>;
+}
+
 // Same "exactly one source" pattern as QuizLinkPicker: an external Google
 // Form link, or an in-built feedback form (picked or authored inline) — the
 // three modes are mutually exclusive so a feedbackFormId and a feedbackLink
 // can never both be set at once.
-export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackLink, onLinkChange, feedbacks, onFormCreated, suggestedTitle }: FeedbackLinkPickerProps) {
+const FeedbackLinkPicker = forwardRef<FeedbackLinkPickerHandle, FeedbackLinkPickerProps>(function FeedbackLinkPicker(
+  { feedbackFormId, onChange, feedbackLink, onLinkChange, feedbacks, onFormCreated, suggestedTitle },
+  ref
+) {
   const [mode, setMode] = useState<'link' | 'select' | 'create'>(feedbackLink ? 'link' : 'select');
   const [newTitle, setNewTitle] = useState(suggestedTitle);
   const [newQuestions, setNewQuestions] = useState<FeedbackQuestionForm[]>(buildEmptyFeedbackQuestions());
@@ -49,6 +65,18 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackL
     setMode('select');
   };
 
+  const createForm = async (): Promise<string> => {
+    const res = await apiCall('/feedback-library', {
+      method: 'POST',
+      body: JSON.stringify({ title: newTitle.trim(), questions: newQuestions }),
+    });
+    const created: FeedbackLibraryItem = res.data;
+    onFormCreated(created);
+    onChange(created.id);
+    setMode('select');
+    return created.id;
+  };
+
   const handleCreate = async () => {
     if (!newTitle.trim()) {
       toast.error('Feedback form title is required');
@@ -60,14 +88,7 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackL
     }
     try {
       setCreating(true);
-      const res = await apiCall('/feedback-library', {
-        method: 'POST',
-        body: JSON.stringify({ title: newTitle.trim(), questions: newQuestions }),
-      });
-      const created: FeedbackLibraryItem = res.data;
-      onFormCreated(created);
-      onChange(created.id);
-      setMode('select');
+      await createForm();
       toast.success('Feedback form created and linked!');
     } catch (error: any) {
       toast.error(error?.message || 'Failed to create feedback form');
@@ -75,6 +96,28 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackL
       setCreating(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    flushPendingCreate: async () => {
+      if (mode !== 'create') return null;
+      const hasAnyContent = newTitle.trim() || newQuestions.some((q) => q.questionText.trim());
+      if (!hasAnyContent) return null;
+      if (!newTitle.trim()) {
+        toast.error('Feedback form title is required');
+        throw new Error('Feedback form title is required');
+      }
+      if (!newQuestions.length || !newQuestions.every(isFeedbackQuestionFilled)) {
+        toast.error('Fill in every question (and all 4 options for multiple-choice) to create the form.');
+        throw new Error('Incomplete feedback form questions');
+      }
+      setCreating(true);
+      try {
+        return await createForm();
+      } finally {
+        setCreating(false);
+      }
+    },
+  }));
 
   return (
     <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-3">
@@ -158,6 +201,9 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackL
               >
                 {creating ? 'Creating…' : 'Save New Feedback Form & Link'}
               </button>
+              <p className="text-[10px] text-amber-400/70">
+                Tip: you can also just fill this in and click the modal&apos;s main Save button below — it&apos;ll be created and linked automatically.
+              </p>
             </div>
           )}
         </>
@@ -166,4 +212,6 @@ export default function FeedbackLinkPicker({ feedbackFormId, onChange, feedbackL
       <p className="text-[10px] text-white/30">In-built feedback content and question-editing lives in the Forms tab — editing it there updates it everywhere it&apos;s linked.</p>
     </div>
   );
-}
+});
+
+export default FeedbackLinkPicker;

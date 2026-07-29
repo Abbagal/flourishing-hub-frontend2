@@ -1,11 +1,12 @@
 'use client';
 
+import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Wifi, WifiOff, X } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
 import type { Event, QuizLibraryItem, FeedbackLibraryItem } from '@/types';
-import QuizLinkPicker from '../QuizLinkPicker';
-import FeedbackLinkPicker from '../FeedbackLinkPicker';
+import QuizLinkPicker, { type QuizLinkPickerHandle } from '../QuizLinkPicker';
+import FeedbackLinkPicker, { type FeedbackLinkPickerHandle } from '../FeedbackLinkPicker';
 import ApplicableToggle from '../ApplicableToggle';
 
 type EventStatus = 'published' | 'completed' | 'draft' | 'cancelled';
@@ -67,7 +68,7 @@ interface EventModalProps {
   setModulesForEvent: (modules: any[]) => void;
   instructors: any[];
   associateInstructors: any[];
-  handleSave: () => void;
+  handleSave: (overrides?: { quizId?: string; feedbackFormId?: string }) => void;
   saving: boolean;
   quizzes: QuizLibraryItem[];
   onQuizCreated: (quiz: QuizLibraryItem) => void;
@@ -93,6 +94,27 @@ export default function EventModal({
   feedbacks,
   onFeedbackCreated,
 }: EventModalProps) {
+  const quizPickerRef = useRef<QuizLinkPickerHandle>(null);
+  const feedbackPickerRef = useRef<FeedbackLinkPickerHandle>(null);
+
+  // Flushes any unsaved "Create New" quiz/feedback draft before saving, so
+  // clicking this button instead of the picker's own "Save & Link" button
+  // never silently discards what the admin typed.
+  const handleSaveClick = async () => {
+    try {
+      const [flushedQuizId, flushedFeedbackId] = await Promise.all([
+        form.quizApplicable ? quizPickerRef.current?.flushPendingCreate() : Promise.resolve(null),
+        form.feedbackApplicable ? feedbackPickerRef.current?.flushPendingCreate() : Promise.resolve(null),
+      ]);
+      handleSave({
+        quizId: flushedQuizId ?? undefined,
+        feedbackFormId: flushedFeedbackId ?? undefined,
+      });
+    } catch {
+      // flushPendingCreate already toasted the validation error — abort the save
+    }
+  };
+
   return (
     <AnimatePresence>
       {showModal && (
@@ -367,6 +389,7 @@ export default function EventModal({
 
                   {form.quizApplicable && (
                     <QuizLinkPicker
+                      ref={quizPickerRef}
                       quizId={form.quizId}
                       onChange={(quizId) => setForm({ ...form, quizId })}
                       quizLink={form.quizLink}
@@ -379,6 +402,7 @@ export default function EventModal({
 
                   {form.feedbackApplicable && (
                     <FeedbackLinkPicker
+                      ref={feedbackPickerRef}
                       feedbackFormId={form.feedbackFormId}
                       onChange={(feedbackFormId) => setForm({ ...form, feedbackFormId })}
                       feedbackLink={form.feedbackLink}
@@ -429,7 +453,7 @@ export default function EventModal({
               <motion.button
                 whileHover={{ scale: saving ? 1 : 1.02 }}
                 whileTap={{ scale: saving ? 1 : 0.98 }}
-                onClick={handleSave}
+                onClick={handleSaveClick}
                 disabled={saving}
                 className="flex-1 btn-primary py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >

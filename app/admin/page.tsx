@@ -659,7 +659,7 @@ export default function AdminDashboard() {
     setShowModal(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (overrides?: { quizId?: string; feedbackFormId?: string }) => {
     if (!form.title || !form.date || !form.time || !form.venue || !form.capacity) {
       toast.error('Please fill in all required fields (title, date, time, venue, capacity)');
       return;
@@ -748,10 +748,12 @@ export default function AdminDashboard() {
       // as a non-transactional follow-up step). Only standalone events own a
       // direct link; course-linked events inherit theirs from the module.
       if (!form.courseId && targetEventId) {
+        const quizIdToLink = overrides?.quizId ?? form.quizId;
+        const feedbackFormIdToLink = overrides?.feedbackFormId ?? form.feedbackFormId;
         try {
           await apiCall(`/admin/events/${targetEventId}/quiz`, {
             method: 'PUT',
-            body: JSON.stringify({ quizId: form.quizId }),
+            body: JSON.stringify({ quizId: quizIdToLink }),
           });
         } catch {
           toast.error('Event saved, but the quiz link failed to save — reopen Edit to retry.');
@@ -759,7 +761,7 @@ export default function AdminDashboard() {
         try {
           await apiCall(`/admin/events/${targetEventId}/feedback`, {
             method: 'PUT',
-            body: JSON.stringify({ feedbackFormId: form.feedbackFormId }),
+            body: JSON.stringify({ feedbackFormId: feedbackFormIdToLink }),
           });
         } catch {
           toast.error('Event saved, but the feedback form link failed to save — reopen Edit to retry.');
@@ -1133,7 +1135,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSaveModule = async () => {
+  const handleSaveModule = async (overrides?: { quizId?: string; feedbackFormId?: string }) => {
     if (!moduleForm.title) {
       toast.error('Module title is required');
       return;
@@ -1173,10 +1175,12 @@ export default function AdminDashboard() {
       // lets every per-batch Event instantiated from this module reuse the
       // same quiz instead of the admin re-linking it each time.
       if (targetModuleId) {
+        const quizIdToLink = overrides?.quizId ?? moduleForm.quizId;
+        const feedbackFormIdToLink = overrides?.feedbackFormId ?? moduleForm.feedbackFormId;
         try {
           await apiCall(`/courses/${selectedCourse.id}/modules/${targetModuleId}/quiz`, {
             method: 'PUT',
-            body: JSON.stringify({ quizId: moduleForm.quizId }),
+            body: JSON.stringify({ quizId: quizIdToLink }),
           });
         } catch {
           toast.error('Module saved, but the quiz link failed to save — reopen Edit to retry.');
@@ -1184,7 +1188,7 @@ export default function AdminDashboard() {
         try {
           await apiCall(`/courses/${selectedCourse.id}/modules/${targetModuleId}/feedback`, {
             method: 'PUT',
-            body: JSON.stringify({ feedbackFormId: moduleForm.feedbackFormId }),
+            body: JSON.stringify({ feedbackFormId: feedbackFormIdToLink }),
           });
         } catch {
           toast.error('Module saved, but the feedback form link failed to save — reopen Edit to retry.');

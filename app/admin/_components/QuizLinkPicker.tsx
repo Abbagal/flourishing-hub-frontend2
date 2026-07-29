@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, forwardRef, useImperativeHandle } from 'react';
 import { Link2, PlusCircle, X, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCall } from '@/lib/api';
@@ -25,12 +25,23 @@ interface QuizLinkPickerProps {
   suggestedTitle: string;
 }
 
+export interface QuizLinkPickerHandle {
+  // Called by the parent modal right before it saves the module/event — see
+  // FeedbackLinkPickerHandle for why this exists (silent draft loss when the
+  // admin fills in "Create New" but clicks the modal's main Save button
+  // instead of this picker's own "Save & Link" button).
+  flushPendingCreate: () => Promise<string | null>;
+}
+
 // A single source for this module/event's quiz — exactly one of: an
 // external Google Form link, or an in-built quiz (picked from the Forms
 // library or authored inline). The three modes are mutually exclusive so a
 // quizId and a quizLink can never both be set at once — there is nothing
 // for either to "override", by construction.
-export default function QuizLinkPicker({ quizId, onChange, quizLink, onLinkChange, quizzes, onQuizCreated, suggestedTitle }: QuizLinkPickerProps) {
+const QuizLinkPicker = forwardRef<QuizLinkPickerHandle, QuizLinkPickerProps>(function QuizLinkPicker(
+  { quizId, onChange, quizLink, onLinkChange, quizzes, onQuizCreated, suggestedTitle },
+  ref
+) {
   const [mode, setMode] = useState<'link' | 'select' | 'create'>(quizLink ? 'link' : 'select');
   const [newTitle, setNewTitle] = useState(suggestedTitle);
   const [newQuestions, setNewQuestions] = useState<QuizQuestionForm[]>(buildEmptyQuizQuestions());
@@ -52,6 +63,18 @@ export default function QuizLinkPicker({ quizId, onChange, quizLink, onLinkChang
     setMode('select');
   };
 
+  const createQuiz = async (): Promise<string> => {
+    const res = await apiCall('/quiz-library', {
+      method: 'POST',
+      body: JSON.stringify({ title: newTitle.trim(), questions: newQuestions }),
+    });
+    const created: QuizLibraryItem = res.data;
+    onQuizCreated(created);
+    onChange(created.id);
+    setMode('select');
+    return created.id;
+  };
+
   const handleCreate = async () => {
     if (!newTitle.trim()) {
       toast.error('Quiz title is required');
@@ -64,14 +87,7 @@ export default function QuizLinkPicker({ quizId, onChange, quizLink, onLinkChang
     }
     try {
       setCreating(true);
-      const res = await apiCall('/quiz-library', {
-        method: 'POST',
-        body: JSON.stringify({ title: newTitle.trim(), questions: newQuestions }),
-      });
-      const created: QuizLibraryItem = res.data;
-      onQuizCreated(created);
-      onChange(created.id);
-      setMode('select');
+      await createQuiz();
       toast.success('Quiz created and linked!');
     } catch (error: any) {
       toast.error(error?.message || 'Failed to create quiz');
@@ -79,6 +95,29 @@ export default function QuizLinkPicker({ quizId, onChange, quizLink, onLinkChang
       setCreating(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    flushPendingCreate: async () => {
+      if (mode !== 'create') return null;
+      const hasAnyContent = newTitle.trim() || newQuestions.some((q) => q.questionText.trim());
+      if (!hasAnyContent) return null;
+      if (!newTitle.trim()) {
+        toast.error('Quiz title is required');
+        throw new Error('Quiz title is required');
+      }
+      const filledCount = newQuestions.filter(isQuizQuestionFilled).length;
+      if (filledCount !== 10) {
+        toast.error('Fill in all 10 questions to create the quiz.');
+        throw new Error('Incomplete quiz questions');
+      }
+      setCreating(true);
+      try {
+        return await createQuiz();
+      } finally {
+        setCreating(false);
+      }
+    },
+  }));
 
   return (
     <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-3">
@@ -162,6 +201,9 @@ export default function QuizLinkPicker({ quizId, onChange, quizLink, onLinkChang
               >
                 {creating ? 'Creating…' : 'Save New Quiz & Link'}
               </button>
+              <p className="text-[10px] text-amber-400/70">
+                Tip: you can also just fill this in and click the modal&apos;s main Save button below — it&apos;ll be created and linked automatically.
+              </p>
             </div>
           )}
         </>
@@ -170,4 +212,6 @@ export default function QuizLinkPicker({ quizId, onChange, quizLink, onLinkChang
       <p className="text-[10px] text-white/30">In-built quiz content and question-editing lives in the Forms tab — editing it there updates it everywhere it&apos;s linked.</p>
     </div>
   );
-}
+});
+
+export default QuizLinkPicker;
