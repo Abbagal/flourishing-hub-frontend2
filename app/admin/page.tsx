@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Calendar, Activity, Settings,
   TrendingUp, UserCheck, UserCog, BarChart2, Play, Zap,
   BookOpen, Shield, Edit2, ClipboardList, CheckCircle, Clock, FileQuestion,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import StatCard from '@/components/StatCard';
@@ -159,6 +160,9 @@ export default function AdminDashboard() {
   useNowTick();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('new-events');
+  const tabScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
+  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [members, setMembers] = useState<MemberDirectory[]>([]);
@@ -388,6 +392,26 @@ export default function AdminDashboard() {
     };
 
     fetchDashboardData();
+  }, []);
+
+  // Drives the tab bar's left/right scroll-arrow visibility — 14 tabs
+  // overflow the row width even on desktop, and the row had no visible
+  // scrollbar or arrows, so reaching a tab near the end (e.g. Settings)
+  // meant blindly swiping/trackpad-scrolling sideways with no feedback.
+  useEffect(() => {
+    const el = tabScrollRef.current;
+    if (!el) return;
+    const updateScrollState = () => {
+      setCanScrollTabsLeft(el.scrollLeft > 4);
+      setCanScrollTabsRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    };
+    updateScrollState();
+    el.addEventListener('scroll', updateScrollState);
+    window.addEventListener('resize', updateScrollState);
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
   }, []);
 
   // Fetch videos when videos tab is opened
@@ -1305,6 +1329,10 @@ export default function AdminDashboard() {
     { id: 'forms', label: 'Forms', icon: FileQuestion },
   ];
 
+  const scrollTabs = (dir: 'left' | 'right') => {
+    tabScrollRef.current?.scrollBy({ left: dir === 'left' ? -280 : 280, behavior: 'smooth' });
+  };
+
   return (
     <DashboardLayout>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
@@ -1359,13 +1387,36 @@ export default function AdminDashboard() {
       {/* Tabs */}
       <div className="glass-card rounded-2xl overflow-hidden">
         <div className="relative">
-          {/* Right-edge fade — on mobile this row scrolls horizontally
-              (no-scrollbar hides the native scrollbar), so without this
-              hint a tab near the edge looked simply cut off, with no
-              indication there was more to swipe to. Admin has the most
-              tabs of any page here, so this was the worst offender. */}
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[rgb(var(--color-card))] to-transparent z-10 sm:hidden" />
-        <div className="flex border-b border-white/5 overflow-x-auto no-scrollbar">
+          {/* Edge fades + click-to-scroll arrows — 14 tabs overflow the row
+              width even on desktop, and the row has no visible scrollbar
+              (no-scrollbar hides it), so reaching a tab near the end (e.g.
+              Settings) meant blindly swiping/trackpad-scrolling sideways
+              with no feedback or faster way to get there. */}
+          {canScrollTabsLeft && (
+            <>
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[rgb(var(--color-card))] to-transparent z-10" />
+              <button
+                onClick={() => scrollTabs('left')}
+                className="absolute left-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all"
+                aria-label="Scroll tabs left"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          {canScrollTabsRight && (
+            <>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[rgb(var(--color-card))] to-transparent z-10" />
+              <button
+                onClick={() => scrollTabs('right')}
+                className="absolute right-1 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all"
+                aria-label="Scroll tabs right"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        <div ref={tabScrollRef} className="flex border-b border-white/5 overflow-x-auto no-scrollbar">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
