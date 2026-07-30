@@ -212,6 +212,9 @@ export default function EventDetailPage() {
           courseName: eventData.course?.name || null,
           moduleName: eventData.courseModule?.title || null,
           batch: eventData.batch || null,
+          instructorName: eventData.assignments?.find((a: any) => a.role === 'INSTRUCTOR')?.user?.name || null,
+          associateInstructorName: eventData.assignments?.find((a: any) => a.role === 'ASSOCIATE_INSTRUCTOR')?.user?.name || null,
+          volunteerNames: (eventData.assignments || []).filter((a: any) => a.role === 'VOLUNTEER').map((a: any) => a.user?.name).filter(Boolean),
         };
 
         setEvent(transformedEvent);
@@ -488,29 +491,55 @@ export default function EventDetailPage() {
             )}
           </div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white leading-tight break-words">{event.title}</h1>
+
+          {/* Course name — a proper sub-heading right under the workshop
+              title (not just a small pill) so the student immediately
+              knows which course this session belongs to, before they have
+              to scroll or infer it from anything else. */}
+          {event.courseName && (
+            <p className="flex items-center gap-1.5 text-sm sm:text-base font-semibold text-violet-300 mt-1.5">
+              <BookOpen className="w-4 h-4 shrink-0" /> {event.courseName}
+            </p>
+          )}
           <p className="text-white/40 text-sm mt-1">Organized by <span className="text-white/60">{event.organizer}</span></p>
 
-          {/* Course / Module / Batch — shown clearly up top, before the
-              student has to scroll to the Attendance Confirmed card below,
-              so they always know exactly which session this is. */}
-          {(event.courseName || event.moduleName || event.batch) && (
+          {/* Module / Batch */}
+          {(event.moduleName || event.batch) && (
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 mt-3 text-xs sm:text-sm">
-              {event.courseName && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 border border-violet-500/25 text-violet-300 font-medium">
-                  <BookOpen className="w-3.5 h-3.5 shrink-0" /> {event.courseName}
-                </span>
-              )}
               {event.moduleName && (
-                <>
-                  <span className="text-white/20">›</span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/70 font-medium">
-                    {event.moduleName}
-                  </span>
-                </>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/70 font-medium">
+                  {event.moduleName}
+                </span>
               )}
               {event.batch && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-300 font-medium">
                   <GraduationCap className="w-3.5 h-3.5 shrink-0" /> Batch {event.batch}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Instructor / Associate Instructor / Volunteers running this
+              session — shown right under the course info so the student
+              knows who to look for/contact, without digging into a modal. */}
+          {(event.instructorName || event.associateInstructorName || event.volunteerNames?.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-xs sm:text-sm text-white/50">
+              {event.instructorName && (
+                <span className="flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-primary shrink-0" />
+                  Instructor: <span className="text-white/70 font-medium">{event.instructorName}</span>
+                </span>
+              )}
+              {event.associateInstructorName && (
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  Associate: <span className="text-white/70 font-medium">{event.associateInstructorName}</span>
+                </span>
+              )}
+              {event.volunteerNames?.length > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  Volunteer{event.volunteerNames.length > 1 ? 's' : ''}: <span className="text-white/70 font-medium">{event.volunteerNames.join(', ')}</span>
                 </span>
               )}
             </div>
