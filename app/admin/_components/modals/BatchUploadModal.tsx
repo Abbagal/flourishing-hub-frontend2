@@ -19,6 +19,8 @@ interface FileResult {
   matched?: number;
   stored?: number;
   skipped?: number;
+  removed?: number;
+  cancelledRegistrations?: number;
   errors?: any[];
   errorMessage?: string;
 }
@@ -30,6 +32,8 @@ interface PendingResolution {
   newCount: number;
   duplicateCount: number;
   duplicates: { row: number; name: string | null; email: string | null; rollNumber: string | null; batchCode: string; reason?: string }[];
+  overrideRemovalCount: number;
+  overrideRemovalPreview: { name: string | null; email: string | null; rollNumber: string | null; batchCode: string }[];
 }
 
 export default function BatchUploadModal({ show, onClose, courses }: BatchUploadModalProps) {
@@ -142,7 +146,7 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
     setAllDone(false);
   };
 
-  const uploadOneFile = async (file: File, resolutionMode?: 'confirm' | 'skip-duplicates') => {
+  const uploadOneFile = async (file: File, resolutionMode?: 'confirm' | 'skip-duplicates' | 'update-override') => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('courseId', selectedCourseId);
@@ -180,6 +184,8 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
             newCount: data.newCount,
             duplicateCount: data.duplicateCount,
             duplicates: data.duplicates,
+            overrideRemovalCount: data.overrideRemovalCount || 0,
+            overrideRemovalPreview: data.overrideRemovalPreview || [],
           });
           setUploading(false);
           return; // paused — handleResolution resumes from here
@@ -226,7 +232,7 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
     runUploadQueue(0, results);
   };
 
-  const handleResolution = async (mode: 'confirm' | 'skip-duplicates') => {
+  const handleResolution = async (mode: 'confirm' | 'skip-duplicates' | 'update-override') => {
     if (!pendingResolution) return;
     const { fileIndex } = pendingResolution;
     setResolving(true);
@@ -240,8 +246,13 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
         matched: data.matched,
         stored: data.stored,
         skipped: data.skipped,
+        removed: data.removed,
+        cancelledRegistrations: data.cancelledRegistrations,
         errors: data.errors
       };
+      if (mode === 'update-override' && data.removed > 0) {
+        toast.success(`${data.removed} student(s) removed — they were missing from this file`, { duration: 6000 });
+      }
     } catch (err: any) {
       results[fileIndex] = { fileName: files[fileIndex].name, status: 'error', errorMessage: err.message };
     }
@@ -493,21 +504,47 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex gap-2 pt-1">
+                  {pendingResolution.overrideRemovalCount > 0 && (
+                    <div className="rounded-lg bg-red-500/10 border border-red-500/25 p-3">
+                      <p className="text-xs font-semibold text-red-300">
+                        {pendingResolution.overrideRemovalCount} previously-uploaded student{pendingResolution.overrideRemovalCount !== 1 ? 's are' : ' is'} missing from this file
+                      </p>
+                      <p className="text-[10px] text-red-400/60 mt-1">
+                        {pendingResolution.overrideRemovalPreview.map((r) => r.name || r.email || r.rollNumber).filter(Boolean).join(', ')}
+                        {pendingResolution.overrideRemovalCount > pendingResolution.overrideRemovalPreview.length ? ', ...' : ''}
+                      </p>
+                      <p className="text-[10px] text-red-400/40 mt-1">Only "Update &amp; Override" below removes them — the other two options leave them untouched.</p>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2 pt-1">
+                    <div className="flex gap-2">
+                      <button
+                        disabled={resolving}
+                        onClick={() => handleResolution('skip-duplicates')}
+                        className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 transition-all disabled:opacity-50"
+                      >
+                        Remove Duplicates &amp; Upload {pendingResolution.newCount} New
+                      </button>
+                      <button
+                        disabled={resolving}
+                        onClick={() => handleResolution('confirm')}
+                        className="flex-1 py-2 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all disabled:opacity-50"
+                      >
+                        {resolving ? 'Uploading...' : `Confirm Upload All ${pendingResolution.totalRows}`}
+                      </button>
+                    </div>
                     <button
                       disabled={resolving}
-                      onClick={() => handleResolution('skip-duplicates')}
-                      className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 transition-all disabled:opacity-50"
+                      onClick={() => handleResolution('update-override')}
+                      className="w-full py-2 rounded-lg text-xs font-semibold bg-red-500/15 text-red-300 border border-red-500/40 hover:bg-red-500/25 transition-all disabled:opacity-50"
                     >
-                      Remove Duplicates &amp; Upload {pendingResolution.newCount} New
+                      {resolving
+                        ? 'Uploading...'
+                        : `Update & Override — Upload ${pendingResolution.totalRows}${pendingResolution.overrideRemovalCount > 0 ? ` & Remove ${pendingResolution.overrideRemovalCount} Missing` : ''}`}
                     </button>
-                    <button
-                      disabled={resolving}
-                      onClick={() => handleResolution('confirm')}
-                      className="flex-1 py-2 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all disabled:opacity-50"
-                    >
-                      {resolving ? 'Uploading...' : `Confirm Upload All ${pendingResolution.totalRows}`}
-                    </button>
+                    <p className="text-[10px] text-white/30 text-center">
+                      This file becomes the full roster for every batch it touches — anyone previously uploaded to that same batch but missing here gets removed.
+                    </p>
                   </div>
                 </div>
               )}
@@ -560,6 +597,7 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
                               <p className="text-[10px] text-emerald-400 mt-0.5">
                                 ✅ {result.matched} matched · {result.stored} stored
                                 {(result.skipped || 0) > 0 && <span className="text-red-400"> · {result.skipped} skipped</span>}
+                                {(result.removed || 0) > 0 && <span className="text-red-400"> · {result.removed} removed</span>}
                               </p>
                             )}
                             {result?.status === 'error' && (
