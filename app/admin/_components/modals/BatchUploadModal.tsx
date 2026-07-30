@@ -175,7 +175,13 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
     setUploading(false);
     setAllDone(true);
     fetchStats();
-    if (totalMatched || totalStored) {
+
+    const errorCount = results.filter(r => r.status === 'error').length;
+    if (errorCount > 0 && !totalMatched && !totalStored) {
+      toast.error(`Upload failed for ${errorCount} file(s)`, { duration: 6000 });
+    } else if (errorCount > 0) {
+      toast(`Processed ${files.length} file(s) — ${totalMatched} matched, ${totalStored} stored, ${errorCount} failed`, { icon: '⚠️', duration: 6000 });
+    } else {
       toast.success(`${files.length} file(s) processed — ${totalMatched} matched, ${totalStored} stored`, { duration: 5000 });
     }
   };
@@ -546,12 +552,14 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
                 {allDone ? 'Close' : 'Cancel'}
               </button>
               <button
-                disabled={!files.length || uploading || !selectedCourseId || !!pendingResolution}
+                disabled={!files.length || uploading || !selectedCourseId || !!pendingResolution || allDone}
                 onClick={handleUploadAll}
                 className="flex-1 btn-primary py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading
                   ? <><div className="w-4 h-4 border-2 border-[#ffffff] border-t-transparent rounded-full animate-spin" /> Processing {doneCount + 1}/{files.length}...</>
+                  : allDone
+                  ? <><CheckCircle className="w-4 h-4" /> Upload Complete</>
                   : <><Upload className="w-4 h-4" /> Upload {files.length > 0 ? `${files.length} Files` : 'Files'}</>}
               </button>
             </div>
