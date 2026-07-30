@@ -45,6 +45,8 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
   const [recordSearch, setRecordSearch] = useState('');
   const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [deleteMenuOpenId, setDeleteMenuOpenId] = useState<string | null>(null);
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!show) {
@@ -79,6 +81,34 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
       if (data.success) setRecords(data.data || []);
     } catch {}
     finally { setLoadingRecords(false); }
+  };
+
+  // Upload only ever adds/updates records — there was never a way to remove
+  // a student who's absent from a later re-upload, so they kept showing up
+  // in the roster forever. 'current' removes just this one (module, batch)
+  // row; 'all-batches' removes every row this student holds in THIS course.
+  const handleDeleteRecord = async (record: any, scope: 'current' | 'all-batches') => {
+    setDeleteMenuOpenId(null);
+    setDeletingRecordId(record.id);
+    try {
+      const res = await fetch(`${API_BASE}/batch-assignments/records/${record.id}?scope=${scope}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Delete failed');
+      toast.success(
+        scope === 'all-batches'
+          ? `Removed from ${data.data.deletedCount} batch(es) in this course${data.data.cancelledRegistrations ? ` — ${data.data.cancelledRegistrations} registration(s) cancelled` : ''}`
+          : `Removed from ${record.batchCode}${data.data.cancelledRegistrations ? ' — registration cancelled' : ''}`
+      );
+      await fetchRecords();
+      fetchStats();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove student');
+    } finally {
+      setDeletingRecordId(null);
+    }
   };
 
   const toggleRecords = () => {
@@ -350,11 +380,12 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
                                 <th className="px-3 py-2 text-left text-white/40 font-semibold">Batch</th>
                                 <th className="px-3 py-2 text-left text-white/40 font-semibold">Department</th>
                                 <th className="px-3 py-2 text-left text-white/40 font-semibold">Signup Status</th>
+                                <th className="px-3 py-2 text-right text-white/40 font-semibold"></th>
                               </tr>
                             </thead>
                             <tbody>
                               {filteredRecords.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-6 text-white/30">No records found</td></tr>
+                                <tr><td colSpan={7} className="text-center py-6 text-white/30">No records found</td></tr>
                               ) : filteredRecords.map((r: any) => (
                                 <tr key={r.id} className="border-b border-white/[0.03]">
                                   <td className="px-3 py-2 text-white">{r.name || '—'}</td>
@@ -366,6 +397,40 @@ export default function BatchUploadModal({ show, onClose, courses }: BatchUpload
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${r.isMatched ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
                                       {r.isMatched ? 'Signed Up' : 'Not Signed Up Yet'}
                                     </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right relative">
+                                    {deletingRecordId === r.id ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin ml-auto" />
+                                    ) : (
+                                      <button
+                                        onClick={() => setDeleteMenuOpenId(deleteMenuOpenId === r.id ? null : r.id)}
+                                        className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-red-400 transition-all"
+                                        title="Remove student"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    {deleteMenuOpenId === r.id && (
+                                      <>
+                                        <div className="fixed inset-0 z-10" onClick={() => setDeleteMenuOpenId(null)} />
+                                        <div className="absolute right-0 top-full mt-1 z-20 w-56 rounded-lg border border-white/10 bg-card shadow-xl py-1 text-left">
+                                          <button
+                                            onClick={() => handleDeleteRecord(r, 'current')}
+                                            className="w-full px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition-colors text-left"
+                                          >
+                                            Delete from current batch
+                                            <span className="block text-[10px] text-white/30 mt-0.5">Only {r.batchCode} ({r.courseModule?.title || 'this module'})</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteRecord(r, 'all-batches')}
+                                            className="w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                                          >
+                                            Delete from all batches
+                                            <span className="block text-[10px] text-red-400/50 mt-0.5">Every batch/module for this student in this course</span>
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
                                   </td>
                                 </tr>
                               ))}
