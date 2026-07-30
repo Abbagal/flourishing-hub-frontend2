@@ -237,6 +237,14 @@ export default function EventDetailPage() {
         // and re-submitting hit "You have already checked in".
         if (isEventLiveOrGrace(eventData.startAt, eventData.endAt)) {
           await fetchCheckInStatus();
+          // Previously only fetched once VERIFIED, so the quiz/feedback
+          // cards stayed completely invisible before check-in and while
+          // verification was pending — the student had no way to see "this
+          // unlocks once you're verified" until it already had. The
+          // endpoints themselves are safe to call pre-verification (they
+          // just return locked: true), so fetch them here too.
+          fetchMyQuiz();
+          fetchMyFeedbackForm();
         }
 
         const allAttendance: any[] = attendanceResponse.data || [];
