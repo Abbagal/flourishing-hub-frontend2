@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Video, Users, Clock, CheckCircle, Wifi, WifiOff, MapPin,
@@ -690,14 +691,22 @@ export default function InstructorDashboard() {
               )}
 
               {selectedAttendanceEvent && (
-                <div className="flex flex-wrap gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-white/60">
-                  <span className="text-white/80 font-medium">{selectedAttendanceEvent.title}</span>
-                  {selectedAttendanceEvent.course?.name && (
-                    <span>Course: <span className="text-white/80">{selectedAttendanceEvent.course.name}</span></span>
-                  )}
-                  {selectedAttendanceEvent.venue && (
-                    <span>Venue: <span className="text-white/80">{selectedAttendanceEvent.venue}</span></span>
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-white/60">
+                  <div className="flex flex-wrap gap-3">
+                    <span className="text-white/80 font-medium">{selectedAttendanceEvent.title}</span>
+                    {selectedAttendanceEvent.course?.name && (
+                      <span>Course: <span className="text-white/80">{selectedAttendanceEvent.course.name}</span></span>
+                    )}
+                    {selectedAttendanceEvent.venue && (
+                      <span>Venue: <span className="text-white/80">{selectedAttendanceEvent.venue}</span></span>
+                    )}
+                  </div>
+                  <Link
+                    href={`/instructor/events/${selectedAttendanceEventId}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 transition-all font-semibold shrink-0"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open Live Event Page
+                  </Link>
                 </div>
               )}
             </div>
