@@ -102,6 +102,13 @@ export default function HomePage() {
               courseId: event.courseId || null,
               courseModuleId: event.courseModuleId || null,
               batch: event.batch || null,
+              // null/undefined = no cap specified (unlimited); 0 is a
+              // deliberate "no volunteer slots" — the admin has no separate
+              // on/off toggle for volunteer signup, so typing 0 into "Max
+              // Volunteer Slots" is the only way to say that. The button
+              // below must treat 0 as genuinely closed, not just "unlimited".
+              volunteersNeeded: event.volunteersNeeded ?? null,
+              allowVolunteerSignup: event.allowVolunteerSignup !== false,
               venue: event.venue || 'TBD',
               mode: event.meetLink ? 'Online' : 'In Classroom',
               capacity: event.capacity || 0,
@@ -406,7 +413,11 @@ export default function HomePage() {
       if (error.message?.includes('already registered')) {
         toast.error('You are already registered for this event');
       } else {
-        toast.error('Volunteer registration failed. Please try again.');
+        // Surface the backend's actual reason (seats full, closed, wrong
+        // batch, etc.) instead of a generic message that hides why it
+        // failed — the previous fallback here made a real, fixable cause
+        // (e.g. 0 volunteer slots configured) look like a random error.
+        toast.error(error.message || 'Volunteer registration failed. Please try again.');
       }
     } finally {
       setRegisteringIds(prev => prev.filter(id => id !== eventId));
@@ -736,18 +747,27 @@ export default function HomePage() {
                       </>
                     )}
                     {user.role === 'volunteer' && (
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => handleVolunteer(activeEvent.id, activeEvent.title)}
-                        disabled={registeringIds.includes(activeEvent.id)}
-                        className={`px-6 py-3 rounded-xl font-semibold text-sm border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-                          volunteerStates[activeEvent.id]
-                            ? 'bg-accent/20 text-accent border-accent/30'
-                            : 'bg-white/5 text-white/70 border-white/15 hover:bg-accent/10 hover:text-accent hover:border-accent/30'
-                        }`}
-                      >
-                        {registeringIds.includes(activeEvent.id) ? 'Registering…' : volunteerStates[activeEvent.id] ? '✓ Volunteered' : 'Register as Volunteer'}
-                      </motion.button>
+                      activeEvent.allowVolunteerSignup === false || activeEvent.volunteersNeeded === 0 ? (
+                        <div
+                          className="px-6 py-3 rounded-xl font-semibold text-sm border border-white/10 bg-white/[0.03] text-white/30 cursor-not-allowed text-center"
+                          title="This event has no volunteer slots open"
+                        >
+                          No Volunteer Slots
+                        </div>
+                      ) : (
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => handleVolunteer(activeEvent.id, activeEvent.title)}
+                          disabled={registeringIds.includes(activeEvent.id)}
+                          className={`px-6 py-3 rounded-xl font-semibold text-sm border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                            volunteerStates[activeEvent.id]
+                              ? 'bg-accent/20 text-accent border-accent/30'
+                              : 'bg-white/5 text-white/70 border-white/15 hover:bg-accent/10 hover:text-accent hover:border-accent/30'
+                          }`}
+                        >
+                          {registeringIds.includes(activeEvent.id) ? 'Registering…' : volunteerStates[activeEvent.id] ? '✓ Volunteered' : 'Register as Volunteer'}
+                        </motion.button>
+                      )
                     )}
                     {(user.role === 'instructor' || user.role === 'associate-instructor') && (
                       <motion.button
