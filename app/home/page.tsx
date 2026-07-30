@@ -814,7 +814,7 @@ export default function HomePage() {
                     event={event}
                     onRegister={user.role === 'student' ? (eventId) => handleRegister(eventId, event.title) : undefined}
                     isRegistered={isRegisteredForEvent(event.id)}
-                    showVolunteerButton={user.role === 'volunteer'}
+                    showVolunteerButton={user.role === 'volunteer' && event.allowVolunteerSignup !== false && event.volunteersNeeded !== 0}
                     onVolunteer={user.role === 'volunteer' ? (eventId) => handleVolunteer(eventId, event.title) : undefined}
                     isVolunteered={volunteerStates[event.id]}
                     hideActions={user.role === 'instructor' || user.role === 'associate-instructor'}
