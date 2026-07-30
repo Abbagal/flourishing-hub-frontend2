@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BookOpen, Calendar, ClipboardList, Copy, Edit2, FileQuestion, Layers, Link2, Plus, Star, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calendar, ClipboardList, Copy, Edit2, Layers, Link2, Plus, Star, X } from 'lucide-react';
 import type { Event } from '@/types';
 import toast from 'react-hot-toast';
-import QuizSetupGuideModal from '@/app/admin/_components/modals/QuizSetupGuideModal';
 
 type CourseStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 
@@ -54,8 +52,6 @@ export default function CoursesTab({
   handleDeleteModule,
   handleCreateWorkshopFromModule,
 }: CoursesTabProps) {
-  const [showQuizSetupGuide, setShowQuizSetupGuide] = useState(false);
-
   return (
     <div className="space-y-6" id="courses">
       {!selectedCourse ? (
@@ -64,13 +60,6 @@ export default function CoursesTab({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-white">Course Management</h3>
             <div className="flex items-center gap-2">
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={() => setShowQuizSetupGuide(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-all"
-              >
-                <FileQuestion className="w-4 h-4" /> Quiz Form Setup Guide
-              </motion.button>
               <motion.button
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={openCreateCourse}
@@ -354,7 +343,6 @@ export default function CoursesTab({
           )}
         </>
       )}
-      <QuizSetupGuideModal open={showQuizSetupGuide} onClose={() => setShowQuizSetupGuide(false)} />
     </div>
   );
 }
