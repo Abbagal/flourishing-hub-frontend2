@@ -1271,7 +1271,10 @@ export default function AdminDashboard() {
       instructorId: '',
       associateInstructorId: '',
       maxVolunteers: '',
-      registrationMode: 'open',
+      // Backend batch-restriction gates (self-registration, visibility, auto-cascade)
+      // only apply when registrationMode is COMPULSORY — must inherit the course's
+      // isCompulsory flag, same as Bulk Import does, not hardcode 'open'.
+      registrationMode: selectedCourse?.isCompulsory ? 'compulsory' : 'open',
       // This event inherits its quiz/feedback from the module (courseModuleId
       // set above) — the toggles/pickers stay hidden in EventModal since
       // form.courseId is set, so this is just satisfying EventFormData's shape.
