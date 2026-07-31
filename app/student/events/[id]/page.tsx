@@ -1043,7 +1043,7 @@ export default function EventDetailPage() {
                         href={event.feedbackLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/15 text-white/80 hover:bg-white/10 transition-all"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary/10 border border-primary/40 text-primary hover:bg-primary/20 transition-all"
                       >
                         <ExternalLink className="w-4 h-4" /> Open Feedback Form{hasFeedbackForm ? ' (Google Form)' : ''}
                       </a>
