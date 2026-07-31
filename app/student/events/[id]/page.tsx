@@ -1011,7 +1011,48 @@ export default function EventDetailPage() {
                 </motion.div>
               )}
 
-              {!hasInBuiltQuiz && !hasFeedbackForm && bothKnown && (
+              {/* External quiz/feedback links — set via a CSV import or the
+                  Module's "Quiz Link"/"Feedback Link" fields (a plain Google
+                  Form URL, not the in-built Quiz/Feedback library). Shown
+                  independently of hasInBuiltQuiz/hasFeedbackForm since a
+                  session can have an external link with no in-built form
+                  configured at all — and can ALSO have both an in-built form
+                  (card above) and an external link at once, so the heading/
+                  button labels are qualified with "(Google Form)" whenever
+                  the in-built counterpart is also present, to avoid reading
+                  as a duplicate of the "Session Quiz"/"Session Feedback" card. */}
+              {(event.quizLink || event.feedbackLink) && (
+                <div className="dark-surface-card rounded-2xl p-5 lg:p-6 space-y-3">
+                  <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{event.quizLink && event.feedbackLink ? 's' : ''}
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {event.quizLink && (
+                      <a
+                        href={event.quizLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                        style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.25)' }}
+                      >
+                        <ExternalLink className="w-4 h-4" /> Open Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
+                      </a>
+                    )}
+                    {event.feedbackLink && (
+                      <a
+                        href={event.feedbackLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/15 text-white/80 hover:bg-white/10 transition-all"
+                      >
+                        <ExternalLink className="w-4 h-4" /> Open Feedback Form{hasFeedbackForm ? ' (Google Form)' : ''}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!hasInBuiltQuiz && !hasFeedbackForm && !event.quizLink && !event.feedbackLink && bothKnown && (
                 <div className="dark-surface-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm">
                   No quiz or feedback form is required for this session.
                 </div>

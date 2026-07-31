@@ -16,7 +16,7 @@ interface BulkImportModalProps {
   onImportComplete?: () => void;
 }
 
-const TEMPLATE_HEADERS = ['date', 'day', 'start time', 'end time', 'venue', 'tutorial/batch', 'instructor', 'associate instructor', 'quiz link', 'workshop name'];
+const TEMPLATE_HEADERS = ['date', 'day', 'start time', 'end time', 'venue', 'tutorial/batch', 'instructor', 'associate instructor', 'quiz link', 'feedback link', 'workshop name'];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -469,6 +469,7 @@ export default function BulkImportModal({
                               <th className="px-3 py-2 text-left text-white/40 font-semibold">Instructor</th>
                               <th className="px-3 py-2 text-left text-white/40 font-semibold">Associate Instructor</th>
                               <th className="px-3 py-2 text-left text-white/40 font-semibold">Quiz Link</th>
+                              <th className="px-3 py-2 text-left text-white/40 font-semibold">Feedback Link</th>
                               <th className="px-3 py-2 text-left text-white/40 font-semibold">Batch</th>
                             </tr>
                           </thead>
@@ -507,6 +508,11 @@ export default function BulkImportModal({
                                 <td className="px-3 py-2 text-white/60 max-w-[120px]">
                                   {ev.quizLink
                                     ? <a href={ev.quizLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block" onClick={(e) => e.stopPropagation()}>Link</a>
+                                    : <span className="text-white/20">—</span>}
+                                </td>
+                                <td className="px-3 py-2 text-white/60 max-w-[120px]">
+                                  {ev.feedbackLink
+                                    ? <a href={ev.feedbackLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block" onClick={(e) => e.stopPropagation()}>Link</a>
                                     : <span className="text-white/20">—</span>}
                                 </td>
                                 <td className="px-3 py-2">
