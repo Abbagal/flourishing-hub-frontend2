@@ -36,6 +36,7 @@ export default function AnalyticsTab({
   const [subTab, setSubTab] = useState<SubTab>('workshop');
   const [filters, setFilters] = useState<AnalyticsFilterState>(emptyAnalyticsFilters);
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingResponses, setExportingResponses] = useState(false);
 
   const filteredRows = useMemo(() => filterAnalyticsRows(analyticsData, filters), [analyticsData, filters]);
 
@@ -63,6 +64,39 @@ export default function AnalyticsTab({
     }
   };
 
+  // New, additive export — student-wise in-built Quiz score, in-built
+  // Feedback-form answers, and Rating, honoring the same Course/Topic/
+  // Instructor/Batch filters already selected above. Independent of
+  // exportMasterExcel above; doesn't touch it.
+  const exportStudentResponses = async () => {
+    setExportingResponses(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const params = new URLSearchParams();
+      if (filters.course) params.set('course', filters.course);
+      if (filters.topic) params.set('topic', filters.topic);
+      if (filters.instructor) params.set('instructor', filters.instructor);
+      if (filters.batch) params.set('batch', filters.batch);
+      const res = await fetch(`${baseUrl}/admin/analytics/export-student-responses?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `student-responses-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Student responses exported!');
+    } catch {
+      toast.error('Failed to export student responses');
+    } finally {
+      setExportingResponses(false);
+    }
+  };
+
   const inDrillDown = subTab === 'workshop' && Boolean(selectedAnalyticsEvent);
 
   return (
@@ -72,14 +106,25 @@ export default function AnalyticsTab({
           <h3 className="text-lg font-semibold text-white">Analytics Console</h3>
           <p className="text-xs text-white/40 mt-0.5">Course performance, facilitator telemetry & student lookup</p>
         </div>
-        <button
-          onClick={exportMasterExcel}
-          disabled={exportingExcel}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all text-sm font-semibold disabled:opacity-50"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          {exportingExcel ? 'Exporting…' : 'Export Master Excel'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportStudentResponses}
+            disabled={exportingResponses}
+            title="Exports student-wise in-built Quiz score, in-built Feedback answers, and Rating — honoring the Course/Topic/Instructor/Batch filters below"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-all text-sm font-semibold disabled:opacity-50"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            {exportingResponses ? 'Exporting…' : 'Export Student Responses'}
+          </button>
+          <button
+            onClick={exportMasterExcel}
+            disabled={exportingExcel}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all text-sm font-semibold disabled:opacity-50"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            {exportingExcel ? 'Exporting…' : 'Export Master Excel'}
+          </button>
+        </div>
       </div>
 
       {!inDrillDown && (
