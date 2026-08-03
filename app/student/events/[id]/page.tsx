@@ -751,10 +751,9 @@ export default function EventDetailPage() {
             >
               {/* Verified Hero */}
               <div
-                className="dark-surface-card relative rounded-2xl overflow-hidden p-4 sm:p-6 lg:p-8"
+                className="glass-card relative rounded-2xl overflow-hidden p-4 sm:p-6 lg:p-8"
                 style={{
-                  background: 'linear-gradient(135deg, #061a0f 0%, #0a2016 50%, #061820 100%)',
-                  border: '1px solid rgba(16,185,129,0.3)',
+                  borderColor: 'rgba(16,185,129,0.3)',
                   boxShadow: '0 0 50px rgba(16,185,129,0.07)',
                 }}
               >
@@ -843,15 +842,10 @@ export default function EventDetailPage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="dark-surface-card relative rounded-2xl overflow-hidden"
+                  className="glass-card relative rounded-2xl overflow-hidden"
                   style={{
-                    background: quizCardUnlocked
-                      ? 'linear-gradient(135deg, #1a0e04, #1f1408)'
-                      : 'linear-gradient(135deg, #111, #1a1a1a)',
-                    border: quizCardUnlocked
-                      ? '1px solid rgba(249,115,22,0.4)'
-                      : '1px solid rgba(255,255,255,0.07)',
-                    boxShadow: quizCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
+                    borderColor: quizCardUnlocked ? 'rgba(249,115,22,0.4)' : undefined,
+                    boxShadow: quizCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : undefined,
                   }}
                 >
                   <div className="p-4 sm:p-5 lg:p-6">
@@ -945,15 +939,10 @@ export default function EventDetailPage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.12 }}
-                  className="dark-surface-card relative rounded-2xl overflow-hidden"
+                  className="glass-card relative rounded-2xl overflow-hidden"
                   style={{
-                    background: feedbackCardUnlocked
-                      ? 'linear-gradient(135deg, #150e2e 0%, #1c1240 50%, #150e2e 100%)'
-                      : 'linear-gradient(135deg, #111, #1a1a1a)',
-                    border: feedbackCardUnlocked
-                      ? '1px solid rgba(139,124,255,0.4)'
-                      : '1px solid rgba(255,255,255,0.07)',
-                    boxShadow: feedbackCardUnlocked ? '0 0 30px rgba(139,124,255,0.12)' : 'none',
+                    borderColor: feedbackCardUnlocked ? 'rgba(139,124,255,0.4)' : undefined,
+                    boxShadow: feedbackCardUnlocked ? '0 0 30px rgba(139,124,255,0.12)' : undefined,
                   }}
                 >
                   <div className="p-4 sm:p-5 lg:p-6">
@@ -1073,13 +1062,7 @@ export default function EventDetailPage() {
                   the in-built counterpart is also present, to avoid reading
                   as a duplicate of the "Session Quiz"/"Session Feedback" card. */}
               {(event.quizLink || event.feedbackLink) && (
-                <div
-                  className="dark-surface-card rounded-2xl p-5 lg:p-6 space-y-3"
-                  style={{
-                    background: 'linear-gradient(135deg, #12121c, #191924)',
-                    border: '1px solid rgba(255,255,255,0.08)'
-                  }}
-                >
+                <div className="glass-card rounded-2xl p-5 lg:p-6 space-y-3">
                   <h3 className="text-white font-semibold text-sm flex items-center gap-2">
                     <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{event.quizLink && event.feedbackLink ? 's' : ''}
                   </h3>
@@ -1117,13 +1100,7 @@ export default function EventDetailPage() {
               )}
 
               {!hasInBuiltQuiz && !hasFeedbackForm && !event.quizLink && !event.feedbackLink && bothKnown && (
-                <div
-                  className="dark-surface-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm"
-                  style={{
-                    background: 'linear-gradient(135deg, #12121c, #191924)',
-                    border: '1px solid rgba(255,255,255,0.08)'
-                  }}
-                >
+                <div className="glass-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm">
                   No quiz or feedback form is required for this session.
                 </div>
               )}
@@ -1188,8 +1165,8 @@ export default function EventDetailPage() {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="dark-surface-card rounded-2xl p-4 sm:p-5"
-                    style={{ background: 'linear-gradient(135deg,#0a1628,#0d1f3c)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 0 25px rgba(99,102,241,0.08)' }}
+                    className="glass-card rounded-2xl p-4 sm:p-5"
+                    style={{ borderColor: 'rgba(99,102,241,0.35)', boxShadow: '0 0 25px rgba(99,102,241,0.08)' }}
                   >
                     <div className="flex items-center justify-between gap-2 mb-4">
                       <div className="flex items-center gap-2 min-w-0">
@@ -1284,17 +1261,10 @@ export default function EventDetailPage() {
               <div className="lg:col-span-3 space-y-4">
                 {/* Check-in / Pending card */}
                 <div
-                  className="dark-surface-card relative rounded-2xl overflow-hidden"
+                  className="glass-card relative rounded-2xl overflow-hidden"
                   style={{
-                    background: isPending
-                      ? 'linear-gradient(135deg, #1a1400, #1f1800)'
-                      : 'linear-gradient(135deg, #0f0f23, #1a0a2e)',
-                    border: isPending
-                      ? '1px solid rgba(245,158,11,0.35)'
-                      : '1px solid rgba(239,68,68,0.25)',
-                    boxShadow: isPending
-                      ? '0 0 40px rgba(245,158,11,0.06)'
-                      : '0 0 40px rgba(239,68,68,0.08)',
+                    borderColor: isPending ? 'rgba(245,158,11,0.35)' : 'rgba(239,68,68,0.25)',
+                    boxShadow: isPending ? '0 0 40px rgba(245,158,11,0.06)' : '0 0 40px rgba(239,68,68,0.08)',
                   }}
                 >
                   <div className="absolute inset-0 pointer-events-none">

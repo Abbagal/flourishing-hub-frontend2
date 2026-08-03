@@ -138,15 +138,6 @@
   --color-fg: 255 255 255;
 }
 
-/* Same fix, generalized: any card that's intentionally rendered on a fixed
-   dark gradient background regardless of theme (e.g. the live-session
-   check-in/quiz cards) needs --color-fg pinned to white too, or its
-   text-white/* classes get redirected to dark ink by the light-theme
-   overrides above and become illegible against the still-dark card. */
-.dark-surface-card {
-  --color-fg: 255 255 255;
-}
-
 @layer base {
   * {
     @apply border-border;
