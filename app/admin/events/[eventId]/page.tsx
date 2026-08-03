@@ -207,7 +207,7 @@ export default function AdminEventDetailPage() {
           <div className="text-xs text-white/50">Registered</div>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-white mb-1">{event.capacity}</div>
+          <div className="text-2xl font-bold text-white mb-1">{event.capacity > 0 ? event.capacity : 'Unlimited'}</div>
           <div className="text-xs text-white/50">Capacity</div>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
@@ -218,7 +218,7 @@ export default function AdminEventDetailPage() {
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-blue-400 mb-1">
-            {isUpcoming ? event.capacity - event.registeredCount : event.attendedCount}
+            {isUpcoming ? (event.capacity > 0 ? event.capacity - event.registeredCount : 'Unlimited') : event.attendedCount}
           </div>
           <div className="text-xs text-white/50">{isUpcoming ? 'Available' : 'Attended'}</div>
         </div>

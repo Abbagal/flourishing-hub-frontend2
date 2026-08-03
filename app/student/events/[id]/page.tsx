@@ -7,7 +7,7 @@ import {
   ArrowLeft, Calendar, Clock, MapPin, Users, ExternalLink,
   Share2, Heart, CheckCircle, AlertCircle, Radio, Loader2,
   BookOpen, GraduationCap, Fingerprint, ShieldCheck, Zap,
-  Wifi, Star, Award, Lock, Video, FileText
+  Wifi, Star, Award, Lock, Video, FileText, Flag
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { apiCall } from '@/lib/api';
@@ -546,6 +546,42 @@ export default function EventDetailPage() {
           )}
         </motion.div>
 
+        {/* ── "Your task right now" banner — the stepper below shows overall
+             progress, but doesn't tell a student AT A GLANCE what action is
+             theirs to take right this moment. This makes that explicit,
+             right under the title, before they have to read/interpret the
+             stepper or scroll down to the cards themselves. Skipped once the
+             post-session exit checklist (below) takes over the same job. */}
+        {!showExitChecklist && (step === 0 || step === 2 || (step === 3 && !feedbackSubmitted)) && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3 mb-6 p-4 rounded-2xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(249,115,22,0.08))',
+              border: '1px solid rgba(245,158,11,0.35)'
+            }}
+          >
+            <motion.div
+              animate={{ scale: [1, 1.08, 1] }}
+              transition={{ repeat: Infinity, duration: 1.8 }}
+              className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0"
+            >
+              <Flag className="w-4.5 h-4.5 text-amber-400" />
+            </motion.div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold tracking-wider text-amber-400 uppercase">Your task right now</p>
+              <p className="text-sm sm:text-base font-semibold text-white truncate">
+                {step === 0
+                  ? 'Check in to this session'
+                  : step === 2
+                  ? `Complete the ${step3Word} below`
+                  : `Rate this session to finish up`}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Post-session exit checklist — the session has ended (or the
              page loaded mid grace-window); make sure the student sees a
              final checklist and can't leave without at least rating. ── */}
@@ -897,18 +933,18 @@ export default function EventDetailPage() {
                   className="dark-surface-card relative rounded-2xl overflow-hidden"
                   style={{
                     background: feedbackCardUnlocked
-                      ? 'linear-gradient(135deg, #1a0e04, #1f1408)'
+                      ? 'linear-gradient(135deg, #150e2e 0%, #1c1240 50%, #150e2e 100%)'
                       : 'linear-gradient(135deg, #111, #1a1a1a)',
                     border: feedbackCardUnlocked
-                      ? '1px solid rgba(249,115,22,0.4)'
+                      ? '1px solid rgba(139,124,255,0.4)'
                       : '1px solid rgba(255,255,255,0.07)',
-                    boxShadow: feedbackCardUnlocked ? '0 0 30px rgba(249,115,22,0.08)' : 'none',
+                    boxShadow: feedbackCardUnlocked ? '0 0 30px rgba(139,124,255,0.12)' : 'none',
                   }}
                 >
                   <div className="p-4 sm:p-5 lg:p-6">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <div className="flex items-center gap-2 min-w-0">
-                        <FileText className={`w-5 h-5 shrink-0 ${feedbackCardUnlocked ? 'text-orange-400' : 'text-white/30'}`} />
+                        <FileText className={`w-5 h-5 shrink-0 ${feedbackCardUnlocked ? 'text-violet-400' : 'text-white/30'}`} />
                         <h2 className="text-white font-bold text-base truncate">
                           Session Feedback <span className="text-red-400">*</span>
                         </h2>
@@ -1022,7 +1058,13 @@ export default function EventDetailPage() {
                   the in-built counterpart is also present, to avoid reading
                   as a duplicate of the "Session Quiz"/"Session Feedback" card. */}
               {(event.quizLink || event.feedbackLink) && (
-                <div className="dark-surface-card rounded-2xl p-5 lg:p-6 space-y-3">
+                <div
+                  className="dark-surface-card rounded-2xl p-5 lg:p-6 space-y-3"
+                  style={{
+                    background: 'linear-gradient(135deg, #12121c, #191924)',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}
+                >
                   <h3 className="text-white font-semibold text-sm flex items-center gap-2">
                     <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{event.quizLink && event.feedbackLink ? 's' : ''}
                   </h3>
@@ -1053,7 +1095,13 @@ export default function EventDetailPage() {
               )}
 
               {!hasInBuiltQuiz && !hasFeedbackForm && !event.quizLink && !event.feedbackLink && bothKnown && (
-                <div className="dark-surface-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm">
+                <div
+                  className="dark-surface-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #12121c, #191924)',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}
+                >
                   No quiz or feedback form is required for this session.
                 </div>
               )}

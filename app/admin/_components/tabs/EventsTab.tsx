@@ -280,7 +280,7 @@ export default function EventsTab({
                   <div className="text-xs text-white/50">Registered</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                  <div className="text-2xl font-bold text-white mb-1">{event.capacity}</div>
+                  <div className="text-2xl font-bold text-white mb-1">{event.capacity > 0 ? event.capacity : 'Unlimited'}</div>
                   <div className="text-xs text-white/50">Capacity</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-white/[0.02] border border-white/5">
@@ -291,7 +291,7 @@ export default function EventsTab({
                 </div>
                 <div className="text-center p-4 rounded-xl bg-white/[0.02] border border-white/5">
                   <div className="text-2xl font-bold text-blue-400 mb-1">
-                    {event.capacity - event.registeredCount}
+                    {event.capacity > 0 ? event.capacity - event.registeredCount : 'Unlimited'}
                   </div>
                   <div className="text-xs text-white/50">Available</div>
                 </div>
