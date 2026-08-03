@@ -678,30 +678,36 @@ export default function StudentDashboard() {
 
             return (
               <div className="glass-card rounded-2xl p-5">
-                {/* Header row */}
-                <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                {/* Header row — h2 and controls stack on mobile instead of
+                    cramming three filter pills + two arrow buttons onto the
+                    same line as the heading, which forced everything down
+                    to near-unreadable/untappable sizes on narrow screens. */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
                   <h2 className="text-base font-semibold text-white">All Events</h2>
-                  <div className="flex items-center gap-2">
-                    {/* Filter pills */}
-                    {(['all', 'registered', 'unregistered'] as const).map(f => (
-                      <button
-                        key={f}
-                        onClick={() => setEventsFilter(f)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                          eventsFilter === f
-                            ? f === 'registered'
-                              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                              : f === 'unregistered'
-                              ? 'bg-accent/20 text-accent border-accent/40'
-                              : 'bg-primary/20 text-primary border-primary/40'
-                            : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10 hover:text-white/60'
-                        }`}
-                      >
-                        {f === 'all' ? `All (${allSliderEvents.length})` : f === 'registered' ? `Registered (${allSliderEvents.filter(e => registeredEvents.includes(e.id)).length})` : `Unregistered (${allSliderEvents.filter(e => !registeredEvents.includes(e.id)).length})`}
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between sm:justify-end gap-2">
+                    {/* Filter pills — horizontally scrollable as a safety
+                        net if they still don't all fit on very narrow screens */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+                      {(['all', 'registered', 'unregistered'] as const).map(f => (
+                        <button
+                          key={f}
+                          onClick={() => setEventsFilter(f)}
+                          className={`shrink-0 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border transition-all ${
+                            eventsFilter === f
+                              ? f === 'registered'
+                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                                : f === 'unregistered'
+                                ? 'bg-accent/20 text-accent border-accent/40'
+                                : 'bg-primary/20 text-primary border-primary/40'
+                              : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10 hover:text-white/60'
+                          }`}
+                        >
+                          {f === 'all' ? `All (${allSliderEvents.length})` : f === 'registered' ? `Registered (${allSliderEvents.filter(e => registeredEvents.includes(e.id)).length})` : `Unregistered (${allSliderEvents.filter(e => !registeredEvents.includes(e.id)).length})`}
+                        </button>
+                      ))}
+                    </div>
                     {/* Scroll arrows */}
-                    <div className="flex gap-1 ml-1">
+                    <div className="flex gap-1 ml-1 shrink-0">
                       <button onClick={() => slide('left')} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-white/50 hover:text-white transition-all">
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
