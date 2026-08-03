@@ -439,6 +439,14 @@ export default function EventDetailPage() {
     const isRejected = checkIn?.status === 'REJECTED';
     const hasCheckedIn = !!checkIn;
 
+    // Quiz/feedback link + rating unlock: session past its midpoint AND the
+    // student has actually checked in (PENDING is enough, doesn't need to be
+    // VERIFIED — see isPastMidSession/hasCheckedIn in operation.service.js).
+    // The in-built quiz/feedback cards get the equivalent of this from the
+    // backend's `locked` flag; the external links and rating card have no
+    // such flag of their own, so it's computed the same way here.
+    const tasksUnlocked = midSessionReached && hasCheckedIn && !isRejected;
+
     // Step indicator: 0 = not checked in (or rejected), 1 = pending verification,
     // 2 = verified but quiz/feedback not done, 3 = quiz/feedback done (rating up next)
     const step = !hasCheckedIn || isRejected ? 0 : isPending ? 1 : !step3Done ? 2 : 3;
@@ -1075,10 +1083,10 @@ export default function EventDetailPage() {
                   <h3 className="text-white font-semibold text-sm flex items-center gap-2">
                     <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{event.quizLink && event.feedbackLink ? 's' : ''}
                   </h3>
-                  {!midSessionReached ? (
+                  {!tasksUnlocked ? (
                     <p className="text-white/30 text-sm flex items-center gap-1.5">
                       <Lock className="w-3 h-3 shrink-0" />
-                      Unlocks once the session is halfway through.
+                      {!hasCheckedIn || isRejected ? 'Check in to this session to unlock.' : 'Unlocks once the session is halfway through.'}
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-3">
@@ -1139,10 +1147,10 @@ export default function EventDetailPage() {
                     </span>
                   )}
                 </div>
-                {!midSessionReached ? (
+                {!tasksUnlocked ? (
                   <p className="text-white/30 text-sm flex items-center gap-1.5">
                     <Lock className="w-3 h-3 shrink-0" />
-                    Rating unlocks once the session is halfway through.
+                    {!hasCheckedIn || isRejected ? 'Check in to this session to unlock rating.' : 'Rating unlocks once the session is halfway through.'}
                   </p>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
