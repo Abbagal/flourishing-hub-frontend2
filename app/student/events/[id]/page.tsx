@@ -112,15 +112,28 @@ export default function EventDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkIn?.status]);
 
-  // Poll quiz score every 15s once verified; fetch the in-built quiz's
-  // unlock/question state once at the same time (re-fetched again right
-  // after a successful submission, no need to poll it separately).
+  // Quiz/feedback unlock on the server the moment the session passes its
+  // midpoint (see isPastMidSession in operation.service.js) — it no longer
+  // waits on VERIFIED. But myQuiz/myFeedbackForm are plain React state,
+  // fetched once and otherwise inert: unlike the external-link/rating gate
+  // (which re-evaluates against the clock on every render via the 1s grace
+  // timer), nothing here re-asks the server once time alone crosses the
+  // midpoint. Gating this poll on VERIFIED only meant a checked-in-but-
+  // still-PENDING student's cards silently stayed locked in the UI well
+  // past the actual unlock moment, until something else (a manual refresh)
+  // happened to re-fetch. Poll from PENDING onward instead, so the unlock
+  // is picked up within 15s of actually happening, regardless of whether
+  // an instructor ever verifies the check-in.
   useEffect(() => {
-    if (checkIn?.status === 'VERIFIED') {
+    if (checkIn?.status === 'VERIFIED' || checkIn?.status === 'PENDING') {
       fetchMyProgress();
       fetchMyQuiz();
       fetchMyFeedbackForm();
-      scorePollerRef.current = setInterval(() => fetchMyProgress(), 15000);
+      scorePollerRef.current = setInterval(() => {
+        fetchMyProgress();
+        fetchMyQuiz();
+        fetchMyFeedbackForm();
+      }, 15000);
     } else {
       if (scorePollerRef.current) clearInterval(scorePollerRef.current);
     }
@@ -836,7 +849,9 @@ export default function EventDetailPage() {
               {/* Quiz / Feedback — step 3. Quiz and Feedback Form are
                   independently applicable — an event can have neither,
                   either, or both, rendered as separate cards. Each unlocks
-                  once attendance is verified. */}
+                  once the session is halfway through (isPastMidSession on
+                  the server) and the student has checked in — attendance
+                  verification is no longer required. */}
               {hasInBuiltQuiz && (
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
@@ -874,7 +889,7 @@ export default function EventDetailPage() {
                     {myQuiz!.locked ? (
                       <p className="text-white/30 text-sm mt-2 flex items-center gap-1.5">
                         <Lock className="w-3 h-3 shrink-0" />
-                        The quiz unlocks once your attendance is verified.
+                        The quiz unlocks once the session is halfway through.
                       </p>
                     ) : myQuiz!.alreadySubmitted ? (
                       <div className="mt-2">
@@ -971,7 +986,7 @@ export default function EventDetailPage() {
                     {myFeedbackForm!.locked ? (
                       <p className="text-white/30 text-sm mt-2 flex items-center gap-1.5">
                         <Lock className="w-3 h-3 shrink-0" />
-                        Feedback unlocks once your attendance is verified.
+                        Feedback unlocks once the session is halfway through.
                       </p>
                     ) : myFeedbackForm!.alreadySubmitted ? (
                       <p className="text-white/60 text-sm mt-2 flex items-center gap-1.5">
