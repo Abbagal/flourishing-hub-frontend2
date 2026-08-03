@@ -12,7 +12,7 @@ import {
 import DashboardLayout from '@/components/DashboardLayout';
 import { apiCall } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
-import { isEventLive, isEventLiveOrGrace, isGracePeriodActive, getGraceSecondsRemaining, isEventUpcoming, isRegistrationOpen } from '@/lib/dateUtils';
+import { isEventLive, isEventLiveOrGrace, isGracePeriodActive, getGraceSecondsRemaining, isEventUpcoming, isRegistrationOpen, isPastEventMidpoint } from '@/lib/dateUtils';
 import { getRegisteredEventIds } from '@/lib/registrationUtils';
 import type { AuthPayload, QuizStudentView, QuizOptionKey, FeedbackFormStudentView, FeedbackStudentAnswer } from '@/types';
 import toast from 'react-hot-toast';
@@ -420,6 +420,13 @@ export default function EventDetailPage() {
     : hasFeedbackForm
     ? 'feedback'
     : 'quiz/feedback';
+  // Quiz/feedback (in-built and external link) and rating now unlock purely
+  // on session timing — halfway through start/end — instead of waiting on
+  // an instructor to verify attendance first. The in-built cards get this
+  // from the backend's `locked` flag (operation.service.js' isPastMidSession);
+  // the external links and the rating card have no backend "locked" concept
+  // of their own, so it's computed the same way here.
+  const midSessionReached = isPastEventMidpoint(event.startAt || (event.date + 'T' + event.time), event.endAt);
   const isUpcoming = isEventUpcoming(event.startAt || (event.date + 'T' + event.time));
   // Registration allowed until 15 minutes after the event starts
   const regOpen = isRegistrationOpen(event.startAt || (event.date + 'T' + event.time));
@@ -1068,29 +1075,36 @@ export default function EventDetailPage() {
                   <h3 className="text-white font-semibold text-sm flex items-center gap-2">
                     <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{event.quizLink && event.feedbackLink ? 's' : ''}
                   </h3>
-                  <div className="flex flex-wrap gap-3">
-                    {event.quizLink && (
-                      <a
-                        href={event.quizLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                        style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.25)' }}
-                      >
-                        <ExternalLink className="w-4 h-4" /> Open Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
-                      </a>
-                    )}
-                    {event.feedbackLink && (
-                      <a
-                        href={event.feedbackLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary/10 border border-primary/40 text-primary hover:bg-primary/20 transition-all"
-                      >
-                        <ExternalLink className="w-4 h-4" /> Open Feedback Form{hasFeedbackForm ? ' (Google Form)' : ''}
-                      </a>
-                    )}
-                  </div>
+                  {!midSessionReached ? (
+                    <p className="text-white/30 text-sm flex items-center gap-1.5">
+                      <Lock className="w-3 h-3 shrink-0" />
+                      Unlocks once the session is halfway through.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-3">
+                      {event.quizLink && (
+                        <a
+                          href={event.quizLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                          style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.25)' }}
+                        >
+                          <ExternalLink className="w-4 h-4" /> Open Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
+                        </a>
+                      )}
+                      {event.feedbackLink && (
+                        <a
+                          href={event.feedbackLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary/10 border border-primary/40 text-primary hover:bg-primary/20 transition-all"
+                        >
+                          <ExternalLink className="w-4 h-4" /> Open Feedback Form{hasFeedbackForm ? ' (Google Form)' : ''}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1125,10 +1139,10 @@ export default function EventDetailPage() {
                     </span>
                   )}
                 </div>
-                {!step3Done ? (
+                {!midSessionReached ? (
                   <p className="text-white/30 text-sm flex items-center gap-1.5">
                     <Lock className="w-3 h-3 shrink-0" />
-                    Complete the {step3Word} above to unlock rating.
+                    Rating unlocks once the session is halfway through.
                   </p>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
