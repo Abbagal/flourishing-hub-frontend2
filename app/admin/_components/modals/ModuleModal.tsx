@@ -20,6 +20,7 @@ interface ModuleFormData {
   quizApplicable: boolean;
   feedbackApplicable: boolean;
   feedbackFormId: string | null;
+  ratingApplicable: boolean;
 }
 
 interface ModuleModalProps {
@@ -167,6 +168,11 @@ export default function ModuleModal({
                   label="Feedback applicable"
                   checked={moduleForm.feedbackApplicable}
                   onChange={(checked) => setModuleForm({ ...moduleForm, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null, feedbackLink: '' }) })}
+                />
+                <ApplicableToggle
+                  label="Rating applicable"
+                  checked={moduleForm.ratingApplicable}
+                  onChange={(checked) => setModuleForm({ ...moduleForm, ratingApplicable: checked })}
                 />
               </div>
 

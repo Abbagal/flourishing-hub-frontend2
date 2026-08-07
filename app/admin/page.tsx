@@ -86,11 +86,12 @@ interface ModuleFormData {
   quizApplicable: boolean;
   feedbackApplicable: boolean;
   feedbackFormId: string | null;
+  ratingApplicable: boolean;
 }
 
 const emptyModuleForm: ModuleFormData = {
   title: '', description: '', posterUrl: '', quizLink: '', feedbackLink: '', duration: '', order: '0',
-  quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null,
+  quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null, ratingApplicable: true,
 };
 
 interface FilterState {
@@ -126,6 +127,7 @@ interface EventFormData {
   quizApplicable: boolean;
   feedbackApplicable: boolean;
   feedbackFormId: string | null;
+  ratingApplicable: boolean;
 }
 
 const emptyForm: EventFormData = {
@@ -134,7 +136,7 @@ const emptyForm: EventFormData = {
   courseId: '', courseModuleId: '', batch: '', posterUrl: '', quizLink: '', feedbackLink: '',
   endTime: '', instructorId: '', associateInstructorId: '', maxVolunteers: '',
   registrationMode: 'open',
-  quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null,
+  quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null, ratingApplicable: true,
 };
 
 const ROLES: UserRole[] = ['student', 'instructor', 'admin', 'volunteer', 'associate-instructor'];
@@ -274,6 +276,7 @@ export default function AdminDashboard() {
     feedbackLink: event.feedbackLink || null,
     quizApplicable: Boolean(event.quizApplicable),
     feedbackApplicable: Boolean(event.feedbackApplicable),
+    ratingApplicable: event.ratingApplicable ?? true,
   }));
 
   // Handle URL hash navigation for tab switching
@@ -655,6 +658,7 @@ export default function AdminDashboard() {
       quizApplicable: Boolean(ev.quizApplicable),
       feedbackApplicable: Boolean(ev.feedbackApplicable),
       feedbackFormId: null,
+      ratingApplicable: ev.ratingApplicable ?? true,
     });
     if (ev.courseId) {
       const course = courses.find(c => c.id === ev.courseId);
@@ -725,7 +729,7 @@ export default function AdminDashboard() {
         registrationMode: regModeMap[form.registrationMode] || 'OPEN',
         ...(form.quizLink && { quizLink: form.quizLink }),
         ...(form.feedbackLink && { feedbackLink: form.feedbackLink }),
-        ...(!form.courseId && { quizApplicable: form.quizApplicable, feedbackApplicable: form.feedbackApplicable }),
+        ...(!form.courseId && { quizApplicable: form.quizApplicable, feedbackApplicable: form.feedbackApplicable, ratingApplicable: form.ratingApplicable }),
         ...(form.courseId && { courseId: form.courseId }),
         ...(form.courseModuleId && { courseModuleId: form.courseModuleId }),
         ...(form.batch && { batch: form.batch }),
@@ -1147,6 +1151,7 @@ export default function AdminDashboard() {
       quizApplicable: Boolean(mod.quizApplicable),
       feedbackApplicable: Boolean(mod.feedbackApplicable),
       feedbackFormId: null,
+      ratingApplicable: mod.ratingApplicable ?? true,
     });
     setShowModuleModal(true);
 
@@ -1187,6 +1192,7 @@ export default function AdminDashboard() {
         order: moduleForm.order ? parseInt(moduleForm.order) : 0,
         quizApplicable: moduleForm.quizApplicable,
         feedbackApplicable: moduleForm.feedbackApplicable,
+        ratingApplicable: moduleForm.ratingApplicable,
       };
 
       let targetModuleId: string | null = editingModule?.id || null;
@@ -1306,6 +1312,7 @@ export default function AdminDashboard() {
       quizApplicable: false,
       feedbackApplicable: false,
       feedbackFormId: null,
+      ratingApplicable: true,
     });
 
     // Open modal after state is set

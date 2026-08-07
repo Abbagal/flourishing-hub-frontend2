@@ -36,6 +36,7 @@ interface EventFormData {
   quizApplicable: boolean;
   feedbackApplicable: boolean;
   feedbackFormId: string | null;
+  ratingApplicable: boolean;
 }
 
 const VENUE_PRESETS = [
@@ -391,6 +392,11 @@ export default function EventModal({
                       label="Feedback applicable"
                       checked={form.feedbackApplicable}
                       onChange={(checked) => setForm({ ...form, feedbackApplicable: checked, ...(checked ? {} : { feedbackFormId: null, feedbackLink: '' }) })}
+                    />
+                    <ApplicableToggle
+                      label="Rating applicable"
+                      checked={form.ratingApplicable}
+                      onChange={(checked) => setForm({ ...form, ratingApplicable: checked })}
                     />
                   </div>
 

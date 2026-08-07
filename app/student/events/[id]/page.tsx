@@ -200,6 +200,12 @@ export default function EventDetailPage() {
         const startDate = new Date(eventData.startAt);
         const rawQuizLink = eventData.quizLink || eventData.courseModule?.quizLink || eventData.modules?.[0]?.quizLink || null;
         const rawFeedbackLink = eventData.feedbackLink || eventData.courseModule?.feedbackLink || eventData.modules?.[0]?.feedbackLink || null;
+        // Course-linked events inherit from their module, same as quiz/feedback
+        // above; defaults true (undefined treated as applicable) so events from
+        // before this field existed keep their prior always-shown behavior.
+        const rawRatingApplicable = eventData.courseModuleId
+          ? (eventData.courseModule?.ratingApplicable ?? true)
+          : (eventData.ratingApplicable ?? true);
         const ensureHttps = (url: string | null) => {
           if (!url) return null;
           return url.startsWith('http') ? url : `https://${url}`;
@@ -222,6 +228,7 @@ export default function EventDetailPage() {
           meetLink: eventData.meetLink,
           quizLink: ensureHttps(rawQuizLink),
           feedbackLink: ensureHttps(rawFeedbackLink),
+          ratingApplicable: rawRatingApplicable,
           courseName: eventData.course?.name || null,
           moduleName: eventData.courseModule?.title || null,
           batch: eventData.batch || null,
@@ -433,6 +440,12 @@ export default function EventDetailPage() {
     : hasFeedbackForm
     ? 'feedback'
     : 'quiz/feedback';
+  // Admin-toggled per event/module (defaults true so existing events keep
+  // their prior always-shown behavior) — when off, the Rating card is
+  // hidden entirely and nothing downstream (checklist, Exit gating, banner)
+  // should wait on a rating that will never be given.
+  const ratingApplicable = event.ratingApplicable !== false;
+  const ratingDone = !ratingApplicable || feedbackSubmitted;
   // Quiz/feedback (in-built and external link) and rating now unlock purely
   // on session timing — halfway through start/end — instead of waiting on
   // an instructor to verify attendance first. The in-built cards get this
@@ -580,7 +593,7 @@ export default function EventDetailPage() {
              right under the title, before they have to read/interpret the
              stepper or scroll down to the cards themselves. Skipped once the
              post-session exit checklist (below) takes over the same job. */}
-        {!showExitChecklist && (step === 0 || step === 2 || (step === 3 && !feedbackSubmitted)) && (
+        {!showExitChecklist && (step === 0 || step === 2 || (step === 3 && !ratingDone)) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -647,7 +660,7 @@ export default function EventDetailPage() {
                         : 'Feedback submitted',
                       done: step3Done,
                     }]),
-                { label: 'Rating given', done: feedbackSubmitted },
+                ...(ratingApplicable ? [{ label: 'Rating given', done: feedbackSubmitted }] : []),
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2 text-xs">
                   {item.done ? (
@@ -662,7 +675,7 @@ export default function EventDetailPage() {
 
             {!step3Done ? (
               <p className="text-xs text-white/50 mb-4">Complete the {step3Word} below first, then rate the session to unlock &quot;Exit the Session&quot;.</p>
-            ) : (
+            ) : ratingApplicable ? (
               <div className="mb-4">
                 <p className="text-xs text-white/50 mb-2">
                   {feedbackSubmitted ? 'Your rating (tap to change):' : 'Rate this session to unlock "Exit the Session":'}
@@ -686,25 +699,25 @@ export default function EventDetailPage() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
             <button
               onClick={() => {
-                if (!step3Done || !feedbackSubmitted) {
+                if (!step3Done || !ratingDone) {
                   toast.error(!step3Done ? `Please complete the ${step3Word} first.` : 'Please rate this session before exiting.');
                   return;
                 }
                 router.push('/student/events');
               }}
-              disabled={!step3Done || !feedbackSubmitted}
-              title={!step3Done || !feedbackSubmitted ? 'Complete the quiz/feedback and rating to exit' : undefined}
+              disabled={!step3Done || !ratingDone}
+              title={!step3Done || !ratingDone ? 'Complete the quiz/feedback and rating to exit' : undefined}
               className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                step3Done && feedbackSubmitted
+                step3Done && ratingDone
                   ? 'btn-primary'
                   : 'bg-white/5 text-white/30 border border-white/10 cursor-not-allowed'
               }`}
             >
-              {!(step3Done && feedbackSubmitted) && <Lock className="w-3.5 h-3.5" />}
+              {!(step3Done && ratingDone) && <Lock className="w-3.5 h-3.5" />}
               Exit the Session
             </button>
           </motion.div>
@@ -1121,52 +1134,56 @@ export default function EventDetailPage() {
               )}
 
               {/* Rating — step 4. Always a separate, mandatory, and repeatedly
-                  editable step, only reachable once quiz/feedback is done. */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="glass-card rounded-2xl p-4 sm:p-5"
-              >
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Star className="w-4 h-4 text-yellow-400 shrink-0" />
-                    <h3 className="text-base font-bold text-white truncate">Rate This Session <span className="text-red-400">*</span></h3>
-                  </div>
-                  {feedbackSubmitted && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
-                      <CheckCircle className="w-3 h-3" /> RATED
-                    </span>
-                  )}
-                </div>
-                {!tasksUnlocked ? (
-                  <p className="text-white/30 text-sm flex items-center gap-1.5">
-                    <Lock className="w-3 h-3 shrink-0" />
-                    {!hasCheckedIn || isRejected ? 'Check in to this session to unlock rating.' : 'Rating unlocks once the session is halfway through.'}
-                  </p>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <p className="text-white/40 text-sm">
-                      {feedbackSubmitted ? 'You rated this session — tap to change:' : 'How was this session?'}
-                    </p>
-                    <div className="flex gap-2">
-                      {[1,2,3,4,5].map(s => (
-                        <motion.button
-                          key={s}
-                          whileHover={{ scale: 1.2 }}
-                          whileTap={{ scale: 0.9 }}
-                          onMouseEnter={() => setFeedbackHover(s)}
-                          onMouseLeave={() => setFeedbackHover(0)}
-                          onClick={() => handleFeedback(s)}
-                          disabled={feedbackSubmitting}
-                        >
-                          <Star className={`w-8 h-8 transition-all ${s <= (feedbackHover || feedbackRating) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
-                        </motion.button>
-                      ))}
+                  editable step, only reachable once quiz/feedback is done.
+                  Admin can turn this whole step off per event/module via the
+                  ratingApplicable toggle — hidden entirely when off. */}
+              {ratingApplicable && (
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="glass-card rounded-2xl p-4 sm:p-5"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Star className="w-4 h-4 text-yellow-400 shrink-0" />
+                      <h3 className="text-base font-bold text-white truncate">Rate This Session <span className="text-red-400">*</span></h3>
                     </div>
+                    {feedbackSubmitted && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold shrink-0">
+                        <CheckCircle className="w-3 h-3" /> RATED
+                      </span>
+                    )}
                   </div>
-                )}
-              </motion.div>
+                  {!tasksUnlocked ? (
+                    <p className="text-white/30 text-sm flex items-center gap-1.5">
+                      <Lock className="w-3 h-3 shrink-0" />
+                      {!hasCheckedIn || isRejected ? 'Check in to this session to unlock rating.' : 'Rating unlocks once the session is halfway through.'}
+                    </p>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3">
+                      <p className="text-white/40 text-sm">
+                        {feedbackSubmitted ? 'You rated this session — tap to change:' : 'How was this session?'}
+                      </p>
+                      <div className="flex gap-2">
+                        {[1,2,3,4,5].map(s => (
+                          <motion.button
+                            key={s}
+                            whileHover={{ scale: 1.2 }}
+                            whileTap={{ scale: 0.9 }}
+                            onMouseEnter={() => setFeedbackHover(s)}
+                            onMouseLeave={() => setFeedbackHover(0)}
+                            onClick={() => handleFeedback(s)}
+                            disabled={feedbackSubmitting}
+                          >
+                            <Star className={`w-8 h-8 transition-all ${s <= (feedbackHover || feedbackRating) ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`} />
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
 
               {/* Legacy module-marks score (bulk-imported CSV marks, unrelated
                   to the in-built Quiz library) — only shown when it ISN'T
@@ -1549,8 +1566,9 @@ export default function EventDetailPage() {
             </div>
           </motion.div>
 
-          {/* Rate — completed + present */}
-          {!isUpcoming && !isLive && myAttendanceRec?.status === 'PRESENT' && (
+          {/* Rate — completed + present. Hidden when the admin has turned
+              the rating step off for this event/module (ratingApplicable). */}
+          {!isUpcoming && !isLive && myAttendanceRec?.status === 'PRESENT' && event.ratingApplicable !== false && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Star className="w-4 h-4 text-yellow-400" />
