@@ -18,15 +18,24 @@ function MetricCard({ label, value }: { label: string; value: string | number })
 const MODULE_STATUS_STYLE: Record<ModuleStatus, string> = {
   PRESENT: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   ABSENT: 'bg-red-500/15 text-red-400 border-red-500/30',
+  PENDING: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
   FAIL: 'bg-red-500/15 text-red-400 border-red-500/30',
   'N/A': 'bg-white/5 text-white/30 border-white/10',
+};
+
+const MODULE_STATUS_LABEL: Record<ModuleStatus, string> = {
+  PRESENT: 'Present',
+  ABSENT: 'Absent',
+  PENDING: 'Pending Verification',
+  FAIL: 'Fail',
+  'N/A': 'N/A',
 };
 
 function ModuleStatusBadge({ status }: { status: ModuleStatus | undefined }) {
   if (!status) return <span className="text-white/20">—</span>;
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${MODULE_STATUS_STYLE[status]}`}>
-      {status === 'PRESENT' ? 'Present' : status === 'ABSENT' ? 'Absent' : status === 'FAIL' ? 'Fail' : 'N/A'}
+      {MODULE_STATUS_LABEL[status]}
     </span>
   );
 }
