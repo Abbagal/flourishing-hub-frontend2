@@ -77,22 +77,23 @@ export interface StudentHistoryEntry {
 
 export type ModuleStatus = 'ABSENT' | 'PENDING' | 'PRESENT' | 'FAIL' | 'N/A';
 
-// Pending: checked in but the instructor hasn't reviewed the check-in yet
-//   (no AttendanceRecord exists at all — distinct from a real Absent, which
-//   only happens when an instructor explicitly rejects, or the 5-day
-//   auto-reject grace period lapses with no review). Since quiz/feedback/
-//   rating now unlock on session-time + check-in alone (not verification —
-//   see operation.service.js's isPastMidSession/hasCheckedIn), a student can
-//   be fully "Pending" here and still have completed everything.
-// Absent: instructor explicitly marked the check-in ABSENT/REJECTED (or
-//   never checked in at all) for that module's event.
+// Pending: checked in (hasCheckedIn) but the instructor hasn't reviewed the
+//   check-in yet (no AttendanceRecord exists at all — distinct from a real
+//   Absent, which happens when an instructor explicitly rejects, the 5-day
+//   auto-reject grace period lapses with no review, or the student never
+//   checked in at all). Since quiz/feedback/rating now unlock on
+//   session-time + check-in alone (not verification — see
+//   operation.service.js's isPastMidSession/hasCheckedIn), a student can be
+//   fully "Pending" here and still have completed everything.
+// Absent: instructor explicitly marked the check-in ABSENT/REJECTED, or the
+//   student never checked in at all, for that module's event.
 // N/A: attended, course has quiz-based grading enabled, but no in-built-quiz
 //   submission exists for this student on this module (nothing to grade).
 // Fail: attended, course has quiz-based grading, quizScore < 4 (out of 10).
 // Present: attended and either the course has no quiz-based grading at all,
 //   or quizScore >= 4.
 function computeModuleStatus(s: AnalyticsStudentEntry, row: WorkshopAnalyticsRow): ModuleStatus {
-  if (s.attendanceStatus === 'NOT_MARKED') return 'PENDING';
+  if (s.attendanceStatus === 'NOT_MARKED') return s.hasCheckedIn ? 'PENDING' : 'ABSENT';
   if (s.attendanceStatus !== 'PRESENT') return 'ABSENT';
   if (!row.courseHasQuiz) return 'PRESENT';
   if (s.quizScore == null) return 'N/A';

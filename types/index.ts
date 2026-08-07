@@ -291,6 +291,11 @@ export interface AnalyticsStudentEntry {
   department: string | null;
   programme: string | null;
   attendanceStatus: AnalyticsAttendanceStatus;
+  // Self check-in exists (PENDING or VERIFIED) — lets the UI tell "checked
+  // in, awaiting instructor review" apart from "never checked in at all";
+  // both are otherwise indistinguishable since neither has an AttendanceRecord
+  // and so both fall back to attendanceStatus NOT_MARKED.
+  hasCheckedIn: boolean;
   quizCompleted: boolean;
   score: number | null;
   maxScore: number | null;
