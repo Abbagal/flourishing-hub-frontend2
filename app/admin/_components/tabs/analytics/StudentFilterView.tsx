@@ -198,7 +198,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  {['Name', 'Roll No', 'Department', 'Batch', 'Events', 'Attendance', 'Avg Score', 'Avg Rating', ...moduleNames, ''].map((h) => (
+                  {['Name', 'Roll No', 'Email', 'Department', 'Batch', 'Events', 'Attendance', 'Avg Score', 'Avg Rating', ...moduleNames, ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -206,7 +206,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={9 + moduleNames.length} className="text-center py-12 text-white/30">No students match the current filter</td>
+                    <td colSpan={10 + moduleNames.length} className="text-center py-12 text-white/30">No students match the current filter</td>
                   </tr>
                 ) : students.map((s) => (
                   <tr
@@ -216,6 +216,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                   >
                     <td className="px-4 py-3 text-white font-medium whitespace-nowrap">{s.name}</td>
                     <td className="px-4 py-3 text-white/60 font-mono">{s.rollNo}</td>
+                    <td className="px-4 py-3 text-white/60">{s.email}</td>
                     <td className="px-4 py-3 text-white/60">{s.department}</td>
                     <td className="px-4 py-3 text-white/60">{s.batches.join(', ') || '—'}</td>
                     <td className="px-4 py-3 text-white/70 font-semibold">{s.eventsCount}</td>
