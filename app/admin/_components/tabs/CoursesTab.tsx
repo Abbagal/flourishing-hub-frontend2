@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, BookOpen, Calendar, ClipboardList, Copy, Edit2, Layers, Link2, Plus, Star, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calendar, ClipboardList, Copy, Edit2, FileQuestion, Layers, Link2, Plus, Star, X } from 'lucide-react';
 import type { Event } from '@/types';
 import toast from 'react-hot-toast';
 
