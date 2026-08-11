@@ -79,6 +79,7 @@ interface ModuleFormData {
   description: string;
   posterUrl: string;
   quizLink: string;
+  postQuizLink: string;
   feedbackLink: string;
   duration: string;
   order: string;
@@ -90,7 +91,7 @@ interface ModuleFormData {
 }
 
 const emptyModuleForm: ModuleFormData = {
-  title: '', description: '', posterUrl: '', quizLink: '', feedbackLink: '', duration: '', order: '0',
+  title: '', description: '', posterUrl: '', quizLink: '', postQuizLink: '', feedbackLink: '', duration: '', order: '0',
   quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null, ratingApplicable: true,
 };
 
@@ -118,6 +119,7 @@ interface EventFormData {
   batch: string;
   posterUrl: string;
   quizLink: string;
+  postQuizLink: string;
   feedbackLink: string;
   instructorId: string;
   associateInstructorId: string;
@@ -133,7 +135,7 @@ interface EventFormData {
 const emptyForm: EventFormData = {
   title: '', description: '', date: '', time: '',
   venue: '', mode: 'In Classroom', capacity: '', status: 'published',
-  courseId: '', courseModuleId: '', batch: '', posterUrl: '', quizLink: '', feedbackLink: '',
+  courseId: '', courseModuleId: '', batch: '', posterUrl: '', quizLink: '', postQuizLink: '', feedbackLink: '',
   endTime: '', instructorId: '', associateInstructorId: '', maxVolunteers: '',
   registrationMode: 'open',
   quizId: null, quizApplicable: false, feedbackApplicable: false, feedbackFormId: null, ratingApplicable: true,
@@ -273,6 +275,7 @@ export default function AdminDashboard() {
     avgEventRating: event.avgEventRating ?? null,
     feedbackCount: event.feedbackCount ?? 0,
     quizLink: event.quizLink || null,
+    postQuizLink: event.postQuizLink || null,
     feedbackLink: event.feedbackLink || null,
     quizApplicable: Boolean(event.quizApplicable),
     feedbackApplicable: Boolean(event.feedbackApplicable),
@@ -649,6 +652,7 @@ export default function AdminDashboard() {
       batch: ev.batch || '',
       posterUrl: ev.bannerImageUrl || '',
       quizLink: ev.quizLink || ev.courseModule?.quizLink || '',
+      postQuizLink: ev.postQuizLink || ev.courseModule?.postQuizLink || '',
       feedbackLink: ev.feedbackLink || ev.courseModule?.feedbackLink || '',
       registrationMode: (ev.registrationMode === 'COMPULSORY' ? 'compulsory' : ev.registrationMode === 'OPTIONAL_BUNDLE' ? 'optional' : 'open') as 'compulsory' | 'optional' | 'open',
       instructorId: ev.instructorId || '',
@@ -728,6 +732,7 @@ export default function AdminDashboard() {
         type: 'WELLNESS_COURSE',
         registrationMode: regModeMap[form.registrationMode] || 'OPEN',
         ...(form.quizLink && { quizLink: form.quizLink }),
+        ...(form.postQuizLink && { postQuizLink: form.postQuizLink }),
         ...(form.feedbackLink && { feedbackLink: form.feedbackLink }),
         ...(!form.courseId && { quizApplicable: form.quizApplicable, feedbackApplicable: form.feedbackApplicable, ratingApplicable: form.ratingApplicable }),
         ...(form.courseId && { courseId: form.courseId }),
@@ -1144,6 +1149,7 @@ export default function AdminDashboard() {
       description: mod.description || '',
       posterUrl: mod.posterUrl || '',
       quizLink: mod.quizLink || '',
+      postQuizLink: mod.postQuizLink || '',
       feedbackLink: mod.feedbackLink || '',
       duration: mod.duration || '',
       order: String(mod.order ?? 0),
@@ -1187,6 +1193,7 @@ export default function AdminDashboard() {
         description: moduleForm.description,
         posterUrl: moduleForm.posterUrl || null,
         quizLink: moduleForm.quizLink || null,
+        postQuizLink: moduleForm.postQuizLink || null,
         feedbackLink: moduleForm.feedbackLink || null,
         duration: moduleForm.duration,
         order: moduleForm.order ? parseInt(moduleForm.order) : 0,
@@ -1297,6 +1304,7 @@ export default function AdminDashboard() {
       endTime: '',
       posterUrl: mod.posterUrl || '',
       quizLink: mod.quizLink || '',
+      postQuizLink: mod.postQuizLink || '',
       feedbackLink: mod.feedbackLink || '',
       instructorId: '',
       associateInstructorId: '',

@@ -27,6 +27,7 @@ interface EventFormData {
   batch: string;
   posterUrl: string;
   quizLink: string;
+  postQuizLink: string;
   feedbackLink: string;
   instructorId: string;
   associateInstructorId: string;
@@ -386,7 +387,7 @@ export default function EventModal({
                     <ApplicableToggle
                       label="Quiz applicable"
                       checked={form.quizApplicable}
-                      onChange={(checked) => setForm({ ...form, quizApplicable: checked, ...(checked ? {} : { quizId: null, quizLink: '' }) })}
+                      onChange={(checked) => setForm({ ...form, quizApplicable: checked, ...(checked ? {} : { quizId: null, quizLink: '', postQuizLink: '' }) })}
                     />
                     <ApplicableToggle
                       label="Feedback applicable"
@@ -407,6 +408,8 @@ export default function EventModal({
                       onChange={(quizId) => setForm({ ...form, quizId })}
                       quizLink={form.quizLink}
                       onLinkChange={(quizLink) => setForm({ ...form, quizLink })}
+                      postQuizLink={form.postQuizLink}
+                      onPostLinkChange={(postQuizLink) => setForm({ ...form, postQuizLink })}
                       quizzes={quizzes}
                       onQuizCreated={onQuizCreated}
                       suggestedTitle={form.title ? `${form.title}-Quiz` : ''}

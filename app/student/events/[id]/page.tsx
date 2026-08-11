@@ -199,6 +199,9 @@ export default function EventDetailPage() {
 
         const startDate = new Date(eventData.startAt);
         const rawQuizLink = eventData.quizLink || eventData.courseModule?.quizLink || eventData.modules?.[0]?.quizLink || null;
+        // Second external quiz link — only meaningful alongside rawQuizLink;
+        // see the Pre/Post Session Quiz split further below.
+        const rawPostQuizLink = eventData.postQuizLink || eventData.courseModule?.postQuizLink || null;
         const rawFeedbackLink = eventData.feedbackLink || eventData.courseModule?.feedbackLink || eventData.modules?.[0]?.feedbackLink || null;
         // Course-linked events inherit from their module, same as quiz/feedback
         // above; defaults true (undefined treated as applicable) so events from
@@ -227,6 +230,7 @@ export default function EventDetailPage() {
           organizer: eventData.createdBy?.name || 'Admin',
           meetLink: eventData.meetLink,
           quizLink: ensureHttps(rawQuizLink),
+          postQuizLink: ensureHttps(rawPostQuizLink),
           feedbackLink: ensureHttps(rawFeedbackLink),
           ratingApplicable: rawRatingApplicable,
           courseName: eventData.course?.name || null,
@@ -472,6 +476,13 @@ export default function EventDetailPage() {
     // backend's `locked` flag; the external links and rating card have no
     // such flag of their own, so it's computed the same way here.
     const tasksUnlocked = midSessionReached && hasCheckedIn && !isRejected;
+    // "Pre Session Quiz" (event.quizLink, once event.postQuizLink is also
+    // set) unlocks as soon as the student has checked in — no midpoint
+    // wait, unlike everything else on this page. Only used when BOTH
+    // external quiz links are configured; with just one, that single link
+    // keeps the normal tasksUnlocked gate (see the render below).
+    const preQuizUnlocked = hasCheckedIn && !isRejected;
+    const hasPrePostQuizPair = Boolean(event.quizLink && event.postQuizLink);
 
     // Step indicator: 0 = not checked in (or rejected), 1 = pending verification,
     // 2 = verified but quiz/feedback not done, 3 = quiz/feedback done (rating up next)
@@ -1088,31 +1099,76 @@ export default function EventDetailPage() {
                   (card above) and an external link at once, so the heading/
                   button labels are qualified with "(Google Form)" whenever
                   the in-built counterpart is also present, to avoid reading
-                  as a duplicate of the "Session Quiz"/"Session Feedback" card. */}
+                  as a duplicate of the "Session Quiz"/"Session Feedback" card.
+
+                  When BOTH quizLink and postQuizLink are set (hasPrePostQuizPair),
+                  they unlock on DIFFERENT rules and are shown as two distinct
+                  buttons: Pre Session Quiz (quizLink) unlocks the moment the
+                  student checks in, no midpoint wait; Post Session Quiz
+                  (postQuizLink) keeps the normal tasksUnlocked gate. With only
+                  one quiz link set, it stays a single unlabeled "Open Quiz"
+                  button on the normal tasksUnlocked gate, same as before this
+                  pairing existed. */}
               {(event.quizLink || event.feedbackLink) && (
                 <div className="glass-card rounded-2xl p-5 lg:p-6 space-y-3">
                   <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                    <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{event.quizLink && event.feedbackLink ? 's' : ''}
+                    <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{(event.quizLink && event.feedbackLink) || hasPrePostQuizPair ? 's' : ''}
                   </h3>
-                  {!tasksUnlocked ? (
-                    <p className="text-white/30 text-sm flex items-center gap-1.5">
-                      <Lock className="w-3 h-3 shrink-0" />
-                      {!hasCheckedIn || isRejected ? 'Check in to this session to unlock.' : 'Unlocks once the session is halfway through.'}
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {event.quizLink && (
-                        <a
-                          href={event.quizLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                          style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.25)' }}
-                        >
-                          <ExternalLink className="w-4 h-4" /> Open Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
-                        </a>
-                      )}
-                      {event.feedbackLink && (
+                  <div className="flex flex-wrap gap-3">
+                    {hasPrePostQuizPair ? (
+                      <>
+                        {preQuizUnlocked ? (
+                          <a
+                            href={event.quizLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                            style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.25)' }}
+                          >
+                            <ExternalLink className="w-4 h-4" /> Open Pre Session Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white/30">
+                            <Lock className="w-3 h-3 shrink-0" /> Pre Session Quiz — check in to unlock
+                          </span>
+                        )}
+                        {tasksUnlocked ? (
+                          <a
+                            href={event.postQuizLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                            style={{ background: 'linear-gradient(135deg,#7c3aed,#a855f7)', color: '#fff', boxShadow: '0 0 20px rgba(168,85,247,0.25)' }}
+                          >
+                            <ExternalLink className="w-4 h-4" /> Open Post Session Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white/30">
+                            <Lock className="w-3 h-3 shrink-0" /> Post Session Quiz — {!hasCheckedIn || isRejected ? 'check in to unlock' : 'unlocks at session midpoint'}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      event.quizLink && (
+                        tasksUnlocked ? (
+                          <a
+                            href={event.quizLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                            style={{ background: 'linear-gradient(135deg,#ea580c,#f97316)', color: '#fff', boxShadow: '0 0 20px rgba(249,115,22,0.25)' }}
+                          >
+                            <ExternalLink className="w-4 h-4" /> Open Quiz{hasInBuiltQuiz ? ' (Google Form)' : ''}
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white/30">
+                            <Lock className="w-3 h-3 shrink-0" /> {!hasCheckedIn || isRejected ? 'Check in to unlock the quiz.' : 'Quiz unlocks once the session is halfway through.'}
+                          </span>
+                        )
+                      )
+                    )}
+                    {event.feedbackLink && (
+                      tasksUnlocked ? (
                         <a
                           href={event.feedbackLink}
                           target="_blank"
@@ -1121,9 +1177,13 @@ export default function EventDetailPage() {
                         >
                           <ExternalLink className="w-4 h-4" /> Open Feedback Form{hasFeedbackForm ? ' (Google Form)' : ''}
                         </a>
-                      )}
-                    </div>
-                  )}
+                      ) : (
+                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white/30">
+                          <Lock className="w-3 h-3 shrink-0" /> {!hasCheckedIn || isRejected ? 'Check in to unlock the feedback form.' : 'Feedback form unlocks once the session is halfway through.'}
+                        </span>
+                      )
+                    )}
+                  </div>
                 </div>
               )}
 

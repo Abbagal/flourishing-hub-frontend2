@@ -13,6 +13,7 @@ interface ModuleFormData {
   description: string;
   posterUrl: string;
   quizLink: string;
+  postQuizLink: string;
   feedbackLink: string;
   duration: string;
   order: string;
@@ -162,7 +163,7 @@ export default function ModuleModal({
                 <ApplicableToggle
                   label="Quiz applicable"
                   checked={moduleForm.quizApplicable}
-                  onChange={(checked) => setModuleForm({ ...moduleForm, quizApplicable: checked, ...(checked ? {} : { quizId: null, quizLink: '' }) })}
+                  onChange={(checked) => setModuleForm({ ...moduleForm, quizApplicable: checked, ...(checked ? {} : { quizId: null, quizLink: '', postQuizLink: '' }) })}
                 />
                 <ApplicableToggle
                   label="Feedback applicable"
@@ -183,6 +184,8 @@ export default function ModuleModal({
                   onChange={(quizId) => setModuleForm({ ...moduleForm, quizId })}
                   quizLink={moduleForm.quizLink}
                   onLinkChange={(quizLink) => setModuleForm({ ...moduleForm, quizLink })}
+                  postQuizLink={moduleForm.postQuizLink}
+                  onPostLinkChange={(postQuizLink) => setModuleForm({ ...moduleForm, postQuizLink })}
                   quizzes={quizzes}
                   onQuizCreated={onQuizCreated}
                   suggestedTitle={selectedCourse ? `${selectedCourse.code || selectedCourse.name}-${moduleForm.title || 'Module'}-Quiz` : ''}

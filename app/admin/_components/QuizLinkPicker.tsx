@@ -20,6 +20,12 @@ interface QuizLinkPickerProps {
   onChange: (quizId: string | null) => void;
   quizLink: string;
   onLinkChange: (link: string) => void;
+  // Second external Google-Form link — "Post Session Quiz". quizLink becomes
+  // "Pre Session Quiz" once this is also set (see the student-facing page
+  // for the unlock-rule split); with only one of the two filled in, it's
+  // still just a single unlabeled quiz link with the old gating.
+  postQuizLink: string;
+  onPostLinkChange: (link: string) => void;
   quizzes: QuizLibraryItem[];
   onQuizCreated: (quiz: QuizLibraryItem) => void;
   suggestedTitle: string;
@@ -39,27 +45,34 @@ export interface QuizLinkPickerHandle {
 // quizId and a quizLink can never both be set at once — there is nothing
 // for either to "override", by construction.
 const QuizLinkPicker = forwardRef<QuizLinkPickerHandle, QuizLinkPickerProps>(function QuizLinkPicker(
-  { quizId, onChange, quizLink, onLinkChange, quizzes, onQuizCreated, suggestedTitle },
+  { quizId, onChange, quizLink, onLinkChange, postQuizLink, onPostLinkChange, quizzes, onQuizCreated, suggestedTitle },
   ref
 ) {
-  const [mode, setMode] = useState<'link' | 'select' | 'create'>(quizLink ? 'link' : 'select');
+  const [mode, setMode] = useState<'link' | 'select' | 'create'>(quizLink || postQuizLink ? 'link' : 'select');
   const [newTitle, setNewTitle] = useState(suggestedTitle);
   const [newQuestions, setNewQuestions] = useState<QuizQuestionForm[]>(buildEmptyQuizQuestions());
   const [creating, setCreating] = useState(false);
 
   const linkedQuiz = quizzes.find((q) => q.id === quizId) || null;
   const hasLink = Boolean(quizLink.trim());
+  const hasPostLink = Boolean(postQuizLink.trim());
 
   const switchMode = (next: 'link' | 'select' | 'create') => {
-    // Switching away from the link mode abandons whatever URL was typed —
-    // keeps the "exactly one source" invariant intact.
-    if (mode === 'link' && next !== 'link' && hasLink) onLinkChange('');
+    // Switching away from the link mode abandons whatever URLs were typed —
+    // keeps the "exactly one source" invariant intact. postQuizLink only
+    // ever pairs with the external-link mode (both must be Google Forms,
+    // never one link + one in-built quiz), so it's cleared alongside quizLink.
+    if (mode === 'link' && next !== 'link') {
+      if (hasLink) onLinkChange('');
+      if (hasPostLink) onPostLinkChange('');
+    }
     setMode(next);
   };
 
   const handleClear = () => {
     onChange(null);
     onLinkChange('');
+    onPostLinkChange('');
     setMode('select');
   };
 
@@ -123,7 +136,7 @@ const QuizLinkPicker = forwardRef<QuizLinkPickerHandle, QuizLinkPickerProps>(fun
     <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-white/60">Quiz Source</p>
-        {(linkedQuiz || hasLink) && (
+        {(linkedQuiz || hasLink || hasPostLink) && (
           <button
             onClick={handleClear}
             className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300"
@@ -168,12 +181,30 @@ const QuizLinkPicker = forwardRef<QuizLinkPickerHandle, QuizLinkPickerProps>(fun
           </div>
 
           {mode === 'link' ? (
-            <input
-              value={quizLink}
-              onChange={(e) => onLinkChange(e.target.value)}
-              placeholder="https://forms.gle/..."
-              className="input-dark w-full px-3 py-2 rounded-lg text-sm"
-            />
+            <div className="space-y-2.5">
+              <div>
+                <label className="text-[10px] font-medium text-white/40 mb-1 block">
+                  Pre Session Quiz Link — opens as soon as the student checks in
+                </label>
+                <input
+                  value={quizLink}
+                  onChange={(e) => onLinkChange(e.target.value)}
+                  placeholder="https://forms.gle/..."
+                  className="input-dark w-full px-3 py-2 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-white/40 mb-1 block">
+                  Post Session Quiz Link (optional) — unlocks once the session is halfway through
+                </label>
+                <input
+                  value={postQuizLink}
+                  onChange={(e) => onPostLinkChange(e.target.value)}
+                  placeholder="https://forms.gle/..."
+                  className="input-dark w-full px-3 py-2 rounded-lg text-sm"
+                />
+              </div>
+            </div>
           ) : mode === 'select' ? (
             <select
               value={quizId || ''}
