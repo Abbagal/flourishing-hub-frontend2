@@ -32,14 +32,20 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    // Show success message if redirected from email verification
+    // Show success message if redirected from email verification.
+    // Runs once on mount only — `searchParams` above is a plain `new
+    // URLSearchParams(...)` recomputed on every render (not memoized), so
+    // depending on it here re-fired this effect on every re-render (e.g.
+    // the word-carousel interval above ticking every 2.5s), showing the
+    // toast repeatedly for as long as ?verified=true stayed in the URL.
     if (searchParams?.get('verified') === 'true') {
       toast.success('Email verified successfully! You can now login.');
     }
     if (searchParams?.get('reset') === 'true') {
       toast.success('Password reset successfully! Please login with your new password.');
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validateEmail = (val: string) => {
     if (!val) { setEmailError(''); return; }
