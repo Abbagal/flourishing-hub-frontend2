@@ -107,11 +107,13 @@ export default function StudentDashboard() {
       // ✅ CRITICAL: Add timeout to prevent stuck loading — only warns/spins
       // on the initial load; a silent background refresh (see visibilitychange
       // below) shouldn't pop an error toast just because it's mid-flight.
+      // 25s (not 10s) — long enough to cover the retry loop below (up to 3
+      // attempts with backoff) without firing while a retry is still in flight.
       const timeoutId = showSpinner ? setTimeout(() => {
         console.log("⚠️ Student dashboard API timeout - setting loading to false");
         setLoading(false);
         toast.error('Loading timeout. Please refresh the page.');
-      }, 10000) : undefined;
+      }, 25000) : undefined;
       try {
         // 🚀 OPTIMIZATION: Use cached user data if available, but also fetch fresh data
         const cachedUser = localStorage.getItem("user");
@@ -150,13 +152,30 @@ export default function StudentDashboard() {
         // Bounded to the last 24h so this doesn't pull the entire history.
         const eventsFrom = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-        // Fetch events, registrations, attendance, and bundle progress in parallel
-        const [eventsResponse, registrationsResponse, attendanceResponse, bundleResponse] = await Promise.all([
-          apiCall(`/events?limit=200&activeOnly=false&from=${encodeURIComponent(eventsFrom)}${batchParam}`),
-          apiCall('/registrations/me'),
-          apiCall('/event-operations/attendance/me').catch(() => ({ data: [] })),
-          apiCall('/student/bundle-progress').catch(() => ({ data: [] })),
-        ]);
+        // Fetch events, registrations, attendance, and bundle progress in
+        // parallel — retried up to 3x with backoff. Under DB connection-pool
+        // pressure (e.g. a signup burst), these calls can transiently 500;
+        // without a retry that showed the student "refresh the page" and an
+        // empty dashboard even though a second attempt moments later would
+        // have succeeded fine.
+        let attempt = 0;
+        let fetchResults: any;
+        while (true) {
+          try {
+            fetchResults = await Promise.all([
+              apiCall(`/events?limit=200&activeOnly=false&from=${encodeURIComponent(eventsFrom)}${batchParam}`),
+              apiCall('/registrations/me'),
+              apiCall('/event-operations/attendance/me').catch(() => ({ data: [] })),
+              apiCall('/student/bundle-progress').catch(() => ({ data: [] })),
+            ]);
+            break;
+          } catch (retryErr: any) {
+            attempt++;
+            if (attempt >= 3 || retryErr?.status === 401) throw retryErr;
+            await new Promise((r) => setTimeout(r, attempt * 1000));
+          }
+        }
+        const [eventsResponse, registrationsResponse, attendanceResponse, bundleResponse] = fetchResults;
         setBundleProgress(bundleResponse.data || []);
         
         console.log("📦 Student events received:", eventsResponse);
