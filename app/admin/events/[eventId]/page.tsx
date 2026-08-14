@@ -25,6 +25,7 @@ interface EventDetail {
   capacity: number;
   status: string;
   registeredCount: number;
+  batchUploadTotal?: number;
   attendedCount: number;
   registrants: any[];
   volunteers: any[];
@@ -203,8 +204,19 @@ export default function AdminEventDetailPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-white mb-1">{event.registeredCount}</div>
-          <div className="text-xs text-white/50">Registered</div>
+          <div className="text-2xl font-bold text-white mb-1">
+            {event.batchUploadTotal ? (
+              <>
+                <span className="text-emerald-400">{event.registeredCount}</span>
+                <span className="text-white/40"> / {event.batchUploadTotal}</span>
+              </>
+            ) : (
+              event.registeredCount
+            )}
+          </div>
+          <div className="text-xs text-white/50">
+            {event.batchUploadTotal ? 'Registered (of CSV batch)' : 'Registered'}
+          </div>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-white mb-1">{event.capacity > 0 ? event.capacity : 'Unlimited'}</div>
