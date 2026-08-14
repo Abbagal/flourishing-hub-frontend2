@@ -9,11 +9,11 @@ import type { Programme } from '@/types';
 import toast from 'react-hot-toast';
 import Logo from '@/components/Logo';
 
-const PROGRAMMES: Programme[] = ['BTech', 'B.Des', 'MTech', 'PhD', 'MSc', 'Staff', 'Dual Degree'];
+const PROGRAMMES: Programme[] = ['BTech', 'B.Des', 'BS', 'MTech', 'PhD', 'MSc', 'Staff', 'Dual Degree'];
 // Explicit mapping — backend Programme enum values don't always match
 // `toUpperCase()` of the label (e.g. "Dual Degree" -> "DUAL_DEGREE", not "DUAL DEGREE").
 const PROGRAMME_API_VALUE: Record<string, string> = {
-  BTech: 'BTECH', 'B.Des': 'BDES', MTech: 'MTECH', PhD: 'PHD', MSc: 'MSC', 'Dual Degree': 'DUAL_DEGREE',
+  BTech: 'BTECH', 'B.Des': 'BDES', BS: 'BS', MTech: 'MTECH', PhD: 'PHD', MSc: 'MSC', 'Dual Degree': 'DUAL_DEGREE',
 };
 const DEPARTMENTS = [
   'Computer Science & Engineering', 'Electrical Engineering', 'Mechanical Engineering',

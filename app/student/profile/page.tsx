@@ -310,6 +310,7 @@ export default function ProfilePage() {
 
   const programmeOptions = [
     { value: 'BTECH', label: 'B.Tech' },
+    { value: 'BS', label: 'B.S' },
     { value: 'MTECH', label: 'M.Tech' },
     { value: 'PHD', label: 'PhD' },
     { value: 'MSC', label: 'M.Sc' },
