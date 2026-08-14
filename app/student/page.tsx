@@ -107,13 +107,16 @@ export default function StudentDashboard() {
       // ✅ CRITICAL: Add timeout to prevent stuck loading — only warns/spins
       // on the initial load; a silent background refresh (see visibilitychange
       // below) shouldn't pop an error toast just because it's mid-flight.
-      // 25s (not 10s) — long enough to cover the retry loop below (up to 3
-      // attempts with backoff) without firing while a retry is still in flight.
+      // 40s — the retry loop below can take up to ~3x10s (each attempt can
+      // take up to the backend's own connection-pool timeout to fail) plus
+      // ~3s of backoff between attempts, so anything under ~33s risked firing
+      // mid-retry and showing this error even though the retry would have
+      // succeeded moments later.
       const timeoutId = showSpinner ? setTimeout(() => {
         console.log("⚠️ Student dashboard API timeout - setting loading to false");
         setLoading(false);
         toast.error('Loading timeout. Please refresh the page.');
-      }, 25000) : undefined;
+      }, 40000) : undefined;
       try {
         // 🚀 OPTIMIZATION: Use cached user data if available, but also fetch fresh data
         const cachedUser = localStorage.getItem("user");
