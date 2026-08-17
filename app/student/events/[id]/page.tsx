@@ -101,10 +101,14 @@ export default function EventDetailPage() {
     }
   };
 
-  // Poll every 2s while PENDING so page transitions immediately when instructor verifies
+  // Poll while PENDING so page transitions immediately when instructor verifies.
+  // 12s (was 5s) — under a large concurrent workshop this was the single
+  // biggest source of backend load (every checked-in student hitting the
+  // server 12x/minute); still fast enough that verification shows up well
+  // within a session's grace window.
   useEffect(() => {
     if (checkIn?.status === 'PENDING') {
-      pollRef.current = setInterval(() => fetchCheckInStatus(), 5000);
+      pollRef.current = setInterval(() => fetchCheckInStatus(), 12000);
     } else {
       if (pollRef.current) clearInterval(pollRef.current);
     }
