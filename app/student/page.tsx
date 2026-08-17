@@ -107,11 +107,12 @@ export default function StudentDashboard() {
       // ✅ CRITICAL: Add timeout to prevent stuck loading — only warns/spins
       // on the initial load; a silent background refresh (see visibilitychange
       // below) shouldn't pop an error toast just because it's mid-flight.
-      // 40s — the retry loop below can take up to ~3x10s (each attempt can
-      // take up to the backend's own connection-pool timeout to fail) plus
-      // ~3s of backoff between attempts, so anything under ~33s risked firing
-      // mid-retry and showing this error even though the retry would have
-      // succeeded moments later.
+      // 40s — the retry loop below (now capped at 2 attempts, see comment
+      // there) can take up to ~2x10s (each attempt can take up to the
+      // backend's own connection-pool timeout to fail) plus its jittered
+      // backoff (~3-4.5s), so anything much under that risks firing mid-retry
+      // and showing this error even though the retry would have succeeded
+      // moments later.
       const timeoutId = showSpinner ? setTimeout(() => {
         console.log("⚠️ Student dashboard API timeout - setting loading to false");
         setLoading(false);
@@ -156,11 +157,21 @@ export default function StudentDashboard() {
         const eventsFrom = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
         // Fetch events, registrations, attendance, and bundle progress in
-        // parallel — retried up to 3x with backoff. Under DB connection-pool
+        // parallel — retried with backoff. Under DB connection-pool
         // pressure (e.g. a signup burst), these calls can transiently 500;
         // without a retry that showed the student "refresh the page" and an
         // empty dashboard even though a second attempt moments later would
         // have succeeded fine.
+        //
+        // Capped at 2 attempts (was 3) with a longer, jittered backoff (was
+        // a flat 1s/2s). During the 14 Aug incident, production logs showed
+        // client-side timeouts (499s) persisting ~10-15 minutes AFTER the
+        // database-side P2024 errors had already stopped — evidence that
+        // retries from hundreds of students, all backing off on the same
+        // fixed 1s/2s schedule, were re-hitting the pool in near-lockstep
+        // and prolonging the backlog instead of just riding it out. A
+        // higher, randomized delay spreads retries out instead of
+        // re-synchronizing them.
         let attempt = 0;
         let fetchResults: any;
         while (true) {
@@ -174,8 +185,9 @@ export default function StudentDashboard() {
             break;
           } catch (retryErr: any) {
             attempt++;
-            if (attempt >= 3 || retryErr?.status === 401) throw retryErr;
-            await new Promise((r) => setTimeout(r, attempt * 1000));
+            if (attempt >= 2 || retryErr?.status === 401) throw retryErr;
+            const jitter = Math.random() * 1500;
+            await new Promise((r) => setTimeout(r, attempt * 3000 + jitter));
           }
         }
         const [eventsResponse, registrationsResponse, attendanceResponse, bundleResponse] = fetchResults;
