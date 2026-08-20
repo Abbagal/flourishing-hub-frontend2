@@ -287,9 +287,14 @@ export default function CoursesTab({
                         {mod.description && <p className="text-xs text-white/50 mt-1">{mod.description}</p>}
                         <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-white/40">
                           {mod.duration && <span>Duration: {mod.duration}</span>}
-                          {mod.quizLink && (
-                            <a href={mod.quizLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:text-blue-300">
-                              <Link2 className="w-3 h-3" /> Quiz
+                          {(mod.quizLink || mod.postQuizLink) && (
+                            <a href={mod.quizLink || mod.postQuizLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:text-blue-300">
+                              <Link2 className="w-3 h-3" /> Quiz{mod.quizLink && mod.postQuizLink ? ' (Pre)' : ''}
+                            </a>
+                          )}
+                          {mod.quizLink && mod.postQuizLink && (
+                            <a href={mod.postQuizLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:text-blue-300">
+                              <Link2 className="w-3 h-3" /> Quiz (Post)
                             </a>
                           )}
                           {mod.feedbackLink && (

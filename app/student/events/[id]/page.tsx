@@ -1113,10 +1113,10 @@ export default function EventDetailPage() {
                   one quiz link set, it stays a single unlabeled "Open Quiz"
                   button on the normal tasksUnlocked gate, same as before this
                   pairing existed. */}
-              {(event.quizLink || event.feedbackLink) && (
+              {(event.quizLink || event.postQuizLink || event.feedbackLink) && (
                 <div className="glass-card rounded-2xl p-5 lg:p-6 space-y-3">
                   <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                    <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{(event.quizLink && event.feedbackLink) || hasPrePostQuizPair ? 's' : ''}
+                    <ExternalLink className="w-4 h-4 text-primary" /> External Form Link{((event.quizLink || event.postQuizLink) && event.feedbackLink) || hasPrePostQuizPair ? 's' : ''}
                   </h3>
                   <div className="flex flex-wrap gap-3">
                     {hasPrePostQuizPair ? (
@@ -1153,10 +1153,14 @@ export default function EventDetailPage() {
                         )}
                       </>
                     ) : (
-                      event.quizLink && (
+                      // Only one of quizLink/postQuizLink is set here (the
+                      // paired case above already handles both-set) — either
+                      // is "the" single quiz link, both use the normal
+                      // tasksUnlocked gate.
+                      (event.quizLink || event.postQuizLink) && (
                         tasksUnlocked ? (
                           <a
-                            href={event.quizLink}
+                            href={event.quizLink || event.postQuizLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -1191,7 +1195,7 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {!hasInBuiltQuiz && !hasFeedbackForm && !event.quizLink && !event.feedbackLink && bothKnown && (
+              {!hasInBuiltQuiz && !hasFeedbackForm && !event.quizLink && !event.postQuizLink && !event.feedbackLink && bothKnown && (
                 <div className="glass-card rounded-2xl p-5 lg:p-6 text-white/30 text-sm">
                   No quiz or feedback form is required for this session.
                 </div>
