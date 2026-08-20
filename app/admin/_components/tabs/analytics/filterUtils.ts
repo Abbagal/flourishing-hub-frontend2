@@ -31,7 +31,20 @@ export function filterAnalyticsRows(
   const needsStudentFilter = Boolean(filters.attendanceStatus || filters.department || minPct !== null || maxPct !== null);
 
   const matchesStudent = (s: AnalyticsStudentEntry) => {
-    if (filters.attendanceStatus && s.attendanceStatus !== filters.attendanceStatus) return false;
+    if (filters.attendanceStatus) {
+      // "Absent" also has to catch NOT_MARKED-and-never-checked-in — a
+      // genuinely absent student never gets an explicit ABSENT
+      // AttendanceRecord (that only happens via instructor rejection or the
+      // 5-day auto-reject cron); most absences just have no record at all.
+      // Same definition as computeModuleStatus's ABSENT branch below, so the
+      // filter and the displayed status agree on who counts as absent.
+      const isAbsent = s.attendanceStatus === 'ABSENT' || (s.attendanceStatus === 'NOT_MARKED' && !s.hasCheckedIn);
+      if (filters.attendanceStatus === 'ABSENT') {
+        if (!isAbsent) return false;
+      } else if (s.attendanceStatus !== filters.attendanceStatus) {
+        return false;
+      }
+    }
     if (filters.department && s.department !== filters.department) return false;
     if (minPct !== null || maxPct !== null) {
       if (s.score == null || s.maxScore == null || s.maxScore === 0) return false;
