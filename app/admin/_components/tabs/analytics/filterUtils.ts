@@ -128,11 +128,18 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
 
   rows.forEach((row) => {
     row.students.forEach((s) => {
-      if (!s.userId) return;
-      let agg = map.get(s.userId);
+      // Pending (no-account-yet) physical-sheet signers have no userId — the
+      // backend can't give them one since they've never signed up. Grouping
+      // them under a synthetic roll-number/email key (instead of skipping
+      // them outright) is what keeps this view's totals matching the
+      // Workshop tab's, which already counts them via row.totalAttended.
+      // userId here is only ever used as a React list key downstream, never
+      // for navigation or an API call, so a non-real value is safe.
+      const key = s.userId || `pending:${s.rollNo}:${s.email}`;
+      let agg = map.get(key);
       if (!agg) {
         agg = {
-          userId: s.userId,
+          userId: key,
           name: s.name,
           email: s.email,
           rollNo: s.rollNo,
