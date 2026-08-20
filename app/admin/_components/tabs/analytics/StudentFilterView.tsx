@@ -76,6 +76,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
     downloadCsv(
       students.map((s) => ({
         Name: s.name,
+        Email: s.email,
         'Roll No': s.rollNo,
         Department: s.department,
         Programme: s.programme,
