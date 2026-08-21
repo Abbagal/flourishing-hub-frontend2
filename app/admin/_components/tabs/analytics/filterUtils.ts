@@ -169,7 +169,7 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
           history: [],
           moduleStatus: {},
         };
-        map.set(s.userId, agg);
+        map.set(key, agg);
       }
       agg.eventsCount += 1;
       if (s.attendanceStatus !== 'NOT_MARKED') {
