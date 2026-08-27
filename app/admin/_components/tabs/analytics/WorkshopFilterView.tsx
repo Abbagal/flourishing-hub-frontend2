@@ -224,9 +224,16 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
                             s.attendanceStatus === 'PRESENT' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                               : s.attendanceStatus === 'ABSENT' ? 'bg-red-500/15 text-red-400 border-red-500/30'
                               : s.attendanceStatus === 'EXCUSED' ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
+                              // A self check-in sits unverified (no AttendanceRecord yet) until
+                              // staff reviews it — same NOT_MARKED-but-hasCheckedIn case the
+                              // Student Filter tab already surfaces as "Pending Verification"
+                              // via computeModuleStatus in filterUtils.ts. This table used to
+                              // collapse it into the same "N/A" as a student who never even
+                              // checked in.
+                              : s.attendanceStatus === 'NOT_MARKED' && s.hasCheckedIn ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                               : 'bg-white/5 text-white/30 border-white/10'
                           }`}>
-                            {s.attendanceStatus === 'NOT_MARKED' ? 'N/A' : s.attendanceStatus}
+                            {s.attendanceStatus === 'NOT_MARKED' ? (s.hasCheckedIn ? 'Pending Verification' : 'N/A') : s.attendanceStatus}
                           </span>
                         </td>
                         <td className="px-3 py-2.5">
