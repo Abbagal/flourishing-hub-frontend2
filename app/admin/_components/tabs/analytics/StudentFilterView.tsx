@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { ArrowLeft, Download, Eye, Star } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
 import { WorkshopAnalyticsRow } from '@/types';
-import { aggregateStudents, ModuleStatus, StudentAggregateRow } from './filterUtils';
+import { AttendanceOnlyStatus, aggregateStudents, ModuleStatus, StudentAggregateRow } from './filterUtils';
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
@@ -36,6 +36,32 @@ function ModuleStatusBadge({ status }: { status: ModuleStatus | undefined }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${MODULE_STATUS_STYLE[status]}`}>
       {MODULE_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+// Separate from ModuleStatusBadge/moduleStatus: that badge folds in the
+// quiz-based Pass/Fail/N/A grading, so a student who attended but failed (or
+// never took) the quiz shows as FAIL/N/A there — indistinguishable from
+// someone who wasn't in the room at all. This badge answers only "did they
+// physically attend", independent of quiz outcome.
+const ATTENDANCE_ONLY_STYLE: Record<AttendanceOnlyStatus, string> = {
+  PRESENT: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  ABSENT: 'bg-red-500/15 text-red-400 border-red-500/30',
+  PENDING: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+};
+
+const ATTENDANCE_ONLY_LABEL: Record<AttendanceOnlyStatus, string> = {
+  PRESENT: 'Attended',
+  ABSENT: 'Absent',
+  PENDING: 'Pending Verification',
+};
+
+function AttendanceOnlyBadge({ status }: { status: AttendanceOnlyStatus | undefined }) {
+  if (!status) return <span className="text-white/20">—</span>;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${ATTENDANCE_ONLY_STYLE[status]}`}>
+      {ATTENDANCE_ONLY_LABEL[status]}
     </span>
   );
 }
@@ -86,7 +112,10 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
         'Attendance %': s.attendancePct != null ? `${s.attendancePct}%` : '—',
         'Avg Score %': s.avgScorePct != null ? `${s.avgScorePct}%` : '—',
         'Avg Rating': s.avgRating ?? '—',
-        ...Object.fromEntries(moduleNames.map((m) => [m, s.moduleStatus[m] ?? '—'])),
+        ...Object.fromEntries(moduleNames.flatMap((m) => [
+          [`${m} — Result`, s.moduleStatus[m] ?? '—'],
+          [`${m} — Attended`, s.moduleAttendance[m] ?? '—'],
+        ])),
       })),
       'student-analytics',
     );
@@ -199,15 +228,19 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  {['Name', 'Roll No', 'Email', 'Department', 'Batch', 'Events', 'Attendance', 'Avg Score', 'Avg Rating', ...moduleNames, ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  {[
+                    'Name', 'Roll No', 'Email', 'Department', 'Batch', 'Events', 'Attendance', 'Avg Score', 'Avg Rating',
+                    ...moduleNames.flatMap((m) => [`${m} — Result`, `${m} — Attended`]),
+                    '',
+                  ].map((h, i) => (
+                    <th key={`${h}-${i}`} className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={10 + moduleNames.length} className="text-center py-12 text-white/30">No students match the current filter</td>
+                    <td colSpan={10 + moduleNames.length * 2} className="text-center py-12 text-white/30">No students match the current filter</td>
                   </tr>
                 ) : students.map((s) => (
                   <tr
@@ -232,9 +265,14 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                       ) : <span className="text-white/30">—</span>}
                     </td>
                     {moduleNames.map((m) => (
-                      <td key={m} className="px-4 py-3">
-                        <ModuleStatusBadge status={s.moduleStatus[m]} />
-                      </td>
+                      <Fragment key={m}>
+                        <td className="px-4 py-3">
+                          <ModuleStatusBadge status={s.moduleStatus[m]} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <AttendanceOnlyBadge status={s.moduleAttendance[m]} />
+                        </td>
+                      </Fragment>
                     ))}
                     <td className="px-4 py-3">
                       <button className="flex items-center gap-1 text-primary hover:text-primary/80 text-xs font-medium">

@@ -113,6 +113,19 @@ function computeModuleStatus(s: AnalyticsStudentEntry, row: WorkshopAnalyticsRow
   return s.quizScore >= 4 ? 'PRESENT' : 'FAIL';
 }
 
+// Pure workshop attendance, deliberately ignoring the quiz-pass/fail overlay
+// above — a student who showed up but failed (or never took) the quiz still
+// physically attended, and the combined moduleStatus column alone can't show
+// that (it collapses both facts into one FAIL/N/A badge). This is the same
+// three-way PRESENT/PENDING/ABSENT split as computeModuleStatus's first two
+// lines, just without the quiz check that follows.
+export type AttendanceOnlyStatus = 'PRESENT' | 'ABSENT' | 'PENDING';
+
+function computeAttendanceOnlyStatus(s: AnalyticsStudentEntry): AttendanceOnlyStatus {
+  if (s.attendanceStatus === 'NOT_MARKED') return s.hasCheckedIn ? 'PENDING' : 'ABSENT';
+  return s.attendanceStatus === 'PRESENT' ? 'PRESENT' : 'ABSENT';
+}
+
 export interface StudentAggregateRow {
   userId: string;
   name: string;
@@ -133,6 +146,8 @@ export interface StudentAggregateRow {
   // Students") — a module the student has no row for at all is simply absent
   // from this map (rendered as "—" in the UI, distinct from 'ABSENT').
   moduleStatus: Record<string, ModuleStatus>;
+  // Same keys as moduleStatus, but pure attendance — see computeAttendanceOnlyStatus.
+  moduleAttendance: Record<string, AttendanceOnlyStatus>;
 }
 
 /** Dedupes the (already filtered) rows' nested students by userId, aggregating across every matching appearance. */
@@ -168,6 +183,7 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
           avgRating: null,
           history: [],
           moduleStatus: {},
+          moduleAttendance: {},
         };
         map.set(key, agg);
       }
@@ -180,6 +196,7 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
       if (row.courseName && row.courseName !== '—' && !agg.courses.includes(row.courseName)) agg.courses.push(row.courseName);
       if (row.moduleName && row.moduleName !== '—') {
         agg.moduleStatus[row.moduleName] = computeModuleStatus(s, row);
+        agg.moduleAttendance[row.moduleName] = computeAttendanceOnlyStatus(s);
       }
       agg.history.push({
         workshopName: row.workshopName,
