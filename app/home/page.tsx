@@ -258,6 +258,9 @@ export default function HomePage() {
   const attendedEventIds = new Set(
     registrations.filter((r: any) => r.status === 'ATTENDED').map((r: any) => r.eventId)
   );
+  const verificationPendingEventIds = new Set(
+    registrations.filter((r: any) => r.verificationPending).map((r: any) => r.eventId)
+  );
   const workshopStatus = (e: any): 'live' | 'upcoming' | 'completed' => {
     const start = e.startAt || `${e.date}T${e.time}`;
     if (isEventLiveOrGrace(start, e.endAt)) return 'live';
@@ -278,6 +281,7 @@ export default function HomePage() {
           wStatus: workshopStatus(e),
           registered: true,
           attended: attendedEventIds.has(e.id),
+          verificationPending: verificationPendingEventIds.has(e.id),
           pending: false,
         }));
 
@@ -597,7 +601,7 @@ export default function HomePage() {
                           <div key={w.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/8 hover:bg-white/[0.05] hover:border-white/15 transition-colors">
                             <div className="flex items-center gap-2.5 min-w-0">
                               <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0 ${
-                                w.attended ? 'bg-emerald-500/20 text-emerald-400' : w.pending ? 'bg-white/10 text-white/40' : 'bg-primary/15 text-primary'
+                                w.attended ? 'bg-emerald-500/20 text-emerald-400' : w.verificationPending ? 'bg-amber-500/20 text-amber-400' : w.pending ? 'bg-white/10 text-white/40' : 'bg-primary/15 text-primary'
                               }`}>{i + 1}</span>
                               <div className="min-w-0">
                                 <span className="text-white/80 text-sm block sm:truncate">{w.title}</span>
@@ -630,6 +634,10 @@ export default function HomePage() {
                                   {w.attended ? (
                                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                       <CheckCircle2 className="w-3 h-3" /> Attended
+                                    </span>
+                                  ) : w.verificationPending ? (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                      <Clock className="w-3 h-3" /> Attendance Verification In-progress
                                     </span>
                                   ) : (
                                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/30">
