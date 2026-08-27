@@ -296,9 +296,19 @@ export default function HomePage() {
       // to until an admin actually schedules it.
       const studentBatch = workshops.find((w: any) => w.batch)?.batch ?? null;
       const relevantEvents = events.filter((e: any) => e.courseId === c.id && (e.batch === studentBatch || !e.batch));
-      const scheduledModuleIds = new Set(
-        relevantEvents.filter((e: any) => e.courseModuleId).map((e: any) => e.courseModuleId)
-      );
+      // A course can reassign a student to a DIFFERENT batch per module (see
+      // BatchAssignment.courseModuleId) — e.g. D4 for module 1 but B29 for
+      // module 2. `studentBatch` above only captures one batch (the first
+      // workshop's), so `relevantEvents` alone would filter out a module the
+      // student is already registered for under a later, different batch,
+      // making it show up a second time as a bogus "Pending Schedule" entry
+      // alongside its real, already-completed row. Always count the
+      // student's own registered `workshops` as scheduled regardless of
+      // which batch they came from.
+      const scheduledModuleIds = new Set([
+        ...relevantEvents.filter((e: any) => e.courseModuleId).map((e: any) => e.courseModuleId),
+        ...workshops.filter((w: any) => w.courseModuleId).map((w: any) => w.courseModuleId)
+      ]);
       // Events created outside the module-based flow (e.g. a plain bulk
       // schedule import) never get a courseModuleId, so a module can only be
       // "already scheduled" via that link when one was actually set — fall
@@ -306,9 +316,10 @@ export default function HomePage() {
       // otherwise a module whose event skipped that link shows up as a
       // duplicate "Pending Schedule" entry next to the real, already-
       // registered one.
-      const scheduledTitles = new Set(
-        relevantEvents.map((e: any) => (e.title || '').trim().toLowerCase()).filter(Boolean)
-      );
+      const scheduledTitles = new Set([
+        ...relevantEvents.map((e: any) => (e.title || '').trim().toLowerCase()).filter(Boolean),
+        ...workshops.map((w: any) => (w.title || '').trim().toLowerCase()).filter(Boolean)
+      ]);
       // A module whose Event already exists for this student's batch but
       // isn't in `scheduledModuleIds`'s complement (i.e. the student isn't
       // registered for it yet) used to vanish entirely here - it failed the
