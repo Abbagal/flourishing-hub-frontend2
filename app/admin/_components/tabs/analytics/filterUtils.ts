@@ -83,6 +83,9 @@ export interface StudentHistoryEntry {
   date: string;
   batch: string;
   attendanceStatus: AnalyticsStudentEntry['attendanceStatus'];
+  hasCheckedIn: boolean;
+  checkInStatus: AnalyticsStudentEntry['checkInStatus'];
+  physicalSheetStatus: AnalyticsStudentEntry['physicalSheetStatus'];
   score: number | null;
   maxScore: number | null;
   rating: number | null;
@@ -148,6 +151,12 @@ export interface StudentAggregateRow {
   moduleStatus: Record<string, ModuleStatus>;
   // Same keys as moduleStatus, but pure attendance — see computeAttendanceOnlyStatus.
   moduleAttendance: Record<string, AttendanceOnlyStatus>;
+  // Same keys as moduleStatus — the raw self-check-in outcome per module,
+  // shown as its own column alongside moduleAttendance/physical-sheet.
+  moduleCheckIn: Record<string, AnalyticsStudentEntry['checkInStatus']>;
+  // Same keys as moduleStatus — what the physical sign-in sheet said per
+  // module, independent of check-in/final status.
+  modulePhysicalSheet: Record<string, AnalyticsStudentEntry['physicalSheetStatus']>;
 }
 
 /** Dedupes the (already filtered) rows' nested students by userId, aggregating across every matching appearance. */
@@ -184,6 +193,8 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
           history: [],
           moduleStatus: {},
           moduleAttendance: {},
+          moduleCheckIn: {},
+          modulePhysicalSheet: {},
         };
         map.set(key, agg);
       }
@@ -197,6 +208,8 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
       if (row.moduleName && row.moduleName !== '—') {
         agg.moduleStatus[row.moduleName] = computeModuleStatus(s, row);
         agg.moduleAttendance[row.moduleName] = computeAttendanceOnlyStatus(s);
+        agg.moduleCheckIn[row.moduleName] = s.checkInStatus;
+        agg.modulePhysicalSheet[row.moduleName] = s.physicalSheetStatus;
       }
       agg.history.push({
         workshopName: row.workshopName,
@@ -204,6 +217,9 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
         date: row.date,
         batch: s.batch,
         attendanceStatus: s.attendanceStatus,
+        hasCheckedIn: s.hasCheckedIn,
+        checkInStatus: s.checkInStatus,
+        physicalSheetStatus: s.physicalSheetStatus,
         score: s.score,
         maxScore: s.maxScore,
         rating: s.rating,

@@ -7,6 +7,21 @@ import { downloadCsv } from '@/lib/csv';
 import toast from 'react-hot-toast';
 import { WorkshopAnalyticsRow } from '@/types';
 
+const CHECK_IN_LABEL: Record<string, string> = {
+  NOT_CHECKED_IN: 'Not Checked-in',
+  CHECKED_IN_PENDING: 'Checked-in (Pending)',
+  CHECKED_IN_VERIFIED: 'Checked-in (Verified)',
+  CHECKED_IN_REJECTED: 'Checked-in (Rejected)',
+};
+
+// Final attendance status when no explicit AttendanceRecord exists yet:
+// checked in but unverified stays "Attendance Verification In-progress"
+// indefinitely (no auto-timeout); never checked in at all is Absent.
+function finalAttendanceLabel(s: any): string {
+  if (s.attendanceStatus !== 'NOT_MARKED') return s.attendanceStatus;
+  return s.hasCheckedIn ? 'Attendance Verification In-progress' : 'ABSENT';
+}
+
 function MetricCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="p-4 rounded-xl bg-white/[0.03] border border-white/8">
@@ -28,6 +43,10 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
   const [markingUserId, setMarkingUserId] = useState<string | null>(null);
   const [rollSearch, setRollSearch] = useState('');
   const [rollProfile, setRollProfile] = useState<{ name: string; rollNo: string; records: any[] } | null>(null);
+  // When on, the next Present/Absent/Excused click records this as coming
+  // from the physical sign-in sheet (its own analytics column) instead of a
+  // generic manual correction — see physicalSheetStatus in types/index.ts.
+  const [markFromPhysicalSheet, setMarkFromPhysicalSheet] = useState(false);
 
   const handleMarkAttendance = async (userId: string, status: 'PRESENT' | 'ABSENT' | 'EXCUSED') => {
     if (!selectedAnalyticsEvent?.id || !userId) return;
@@ -35,12 +54,14 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
     try {
       await apiCall(`/event-operations/${selectedAnalyticsEvent.id}/attendance`, {
         method: 'POST',
-        body: { userId, status, source: 'admin-analytics' },
+        body: { userId, status, source: markFromPhysicalSheet ? 'PHYSICAL_SHEET' : 'admin-analytics' },
       });
       setSelectedAnalyticsEvent({
         ...selectedAnalyticsEvent,
         students: (selectedAnalyticsEvent.students || []).map((s: any) =>
-          s.userId === userId ? { ...s, attendanceStatus: status } : s
+          s.userId === userId
+            ? { ...s, attendanceStatus: status, ...(markFromPhysicalSheet ? { physicalSheetStatus: status === 'EXCUSED' ? s.physicalSheetStatus : status } : {}) }
+            : s
         ),
         totalAttended: (selectedAnalyticsEvent.students || []).filter((s: any) =>
           s.userId === userId ? status === 'PRESENT' : s.attendanceStatus === 'PRESENT'
@@ -181,59 +202,91 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
               <h5 className="text-white font-semibold text-sm">
                 Registered Students ({(selectedAnalyticsEvent.students || []).length})
               </h5>
-              <button
-                onClick={() => {
-                  const csvRows = (selectedAnalyticsEvent.students || []).map((s: any) => ({
-                    Name: s.name,
-                    Email: s.email,
-                    'Roll No': s.rollNo,
-                    Batch: s.batch,
-                    Attendance: s.attendanceStatus,
-                    'Quiz Completed': s.quizCompleted ? 'Yes' : 'No',
-                    Score: s.score != null ? `${s.score}/${s.maxScore ?? '?'}` : '—',
-                    Rating: s.rating ?? '—',
-                    'Registration Status': s.registrationStatus,
-                  }));
-                  downloadCsv(csvRows, `${selectedAnalyticsEvent.workshopName}-students`);
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition-all text-xs font-semibold"
-              >
-                <Download className="w-3.5 h-3.5" /> Export CSV
-              </button>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-[11px] text-white/50 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={markFromPhysicalSheet}
+                    onChange={(e) => setMarkFromPhysicalSheet(e.target.checked)}
+                    className="accent-amber-400"
+                  />
+                  Mark from physical sheet
+                </label>
+                <button
+                  onClick={() => {
+                    const csvRows = (selectedAnalyticsEvent.students || []).map((s: any) => ({
+                      Name: s.name,
+                      Email: s.email,
+                      'Roll No': s.rollNo,
+                      Batch: s.batch,
+                      'Check-in Status': CHECK_IN_LABEL[s.checkInStatus] ?? 'Not Checked-in',
+                      'Physical Sheet Status': s.physicalSheetStatus ?? '—',
+                      'Final Attendance Status': finalAttendanceLabel(s),
+                      'Quiz Completed': s.quizCompleted ? 'Yes' : 'No',
+                      Score: s.score != null ? `${s.score}/${s.maxScore ?? '?'}` : '—',
+                      Rating: s.rating ?? '—',
+                      'Registration Status': s.registrationStatus,
+                    }));
+                    downloadCsv(csvRows, `${selectedAnalyticsEvent.workshopName}-students`);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition-all text-xs font-semibold"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export CSV
+                </button>
+              </div>
             </div>
             <div className="rounded-xl border border-white/5 overflow-hidden">
               <div className="overflow-x-auto max-h-80 overflow-y-auto">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-card">
                     <tr className="border-b border-white/5">
-                      {['Name', 'Roll No', 'Batch', 'Attendance', 'Mark Attendance', 'Quiz', 'Score', 'Rating'].map((h) => (
+                      {['Name', 'Roll No', 'Batch', 'Check-in Status', 'Physical Sheet', 'Final Attendance', 'Mark Attendance', 'Quiz', 'Score', 'Rating'].map((h) => (
                         <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {(selectedAnalyticsEvent.students || []).length === 0 ? (
-                      <tr><td colSpan={8} className="text-center py-8 text-white/30">No students registered</td></tr>
+                      <tr><td colSpan={10} className="text-center py-8 text-white/30">No students registered</td></tr>
                     ) : (selectedAnalyticsEvent.students || []).map((s: any, i: number) => (
                       <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
                         <td className="px-3 py-2.5 text-white font-medium whitespace-nowrap">{s.name}</td>
                         <td className="px-3 py-2.5 text-white/60 font-mono">{s.rollNo}</td>
                         <td className="px-3 py-2.5 text-white/60">{s.batch}</td>
                         <td className="px-3 py-2.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
+                            s.checkInStatus === 'CHECKED_IN_VERIFIED' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : s.checkInStatus === 'CHECKED_IN_PENDING' ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                              : s.checkInStatus === 'CHECKED_IN_REJECTED' ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                              : 'bg-white/5 text-white/30 border-white/10'
+                          }`}>
+                            {CHECK_IN_LABEL[s.checkInStatus] ?? 'Not Checked-in'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            s.physicalSheetStatus === 'PRESENT' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : s.physicalSheetStatus === 'ABSENT' ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                              : 'bg-white/5 text-white/30 border-white/10'
+                          }`}>
+                            {s.physicalSheetStatus ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
                             s.attendanceStatus === 'PRESENT' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                              : s.attendanceStatus === 'ABSENT' ? 'bg-red-500/15 text-red-400 border-red-500/30'
                               : s.attendanceStatus === 'EXCUSED' ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
                               // A self check-in sits unverified (no AttendanceRecord yet) until
                               // staff reviews it — same NOT_MARKED-but-hasCheckedIn case the
                               // Student Filter tab already surfaces as "Attendance Verification In-progress"
-                              // via computeModuleStatus in filterUtils.ts. This table used to
-                              // collapse it into the same "N/A" as a student who never even
-                              // checked in.
+                              // via computeModuleStatus in filterUtils.ts. No auto-timeout any
+                              // more (the old 5-day auto-reject cron is gone) — this stays until
+                              // a human verifies. Not checked in at all (and no physical sheet
+                              // data) is a real Absent, not an ambiguous N/A.
                               : s.attendanceStatus === 'NOT_MARKED' && s.hasCheckedIn ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                              : 'bg-white/5 text-white/30 border-white/10'
+                              : 'bg-red-500/15 text-red-400 border-red-500/30'
                           }`}>
-                            {s.attendanceStatus === 'NOT_MARKED' ? (s.hasCheckedIn ? 'Attendance Verification In-progress' : 'N/A') : s.attendanceStatus}
+                            {finalAttendanceLabel(s)}
                           </span>
                         </td>
                         <td className="px-3 py-2.5">
@@ -472,9 +525,11 @@ export default function WorkshopFilterView({ rows, allRows, selectedAnalyticsEve
                       <div key={i} className="flex items-center justify-between text-[11px] py-1 border-b border-white/5 last:border-0">
                         <span className="text-white/60 truncate max-w-[60%]">{r.workshopName}</span>
                         <span className={`font-semibold ${
-                          r.attendanceStatus === 'PRESENT' ? 'text-emerald-400' : 'text-red-400'
+                          r.attendanceStatus === 'PRESENT' ? 'text-emerald-400'
+                            : r.attendanceStatus === 'NOT_MARKED' && r.hasCheckedIn ? 'text-amber-400'
+                            : 'text-red-400'
                         }`}>
-                          {r.attendanceStatus === 'PRESENT' ? 'Present' : r.attendanceStatus || 'N/A'}
+                          {finalAttendanceLabel(r)}
                           {r.score != null ? ` · ${r.score}/5` : ''}
                         </span>
                       </div>

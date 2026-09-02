@@ -296,6 +296,14 @@ export interface AnalyticsStudentEntry {
   // both are otherwise indistinguishable since neither has an AttendanceRecord
   // and so both fall back to attendanceStatus NOT_MARKED.
   hasCheckedIn: boolean;
+  // Raw self-check-in outcome, independent of attendanceStatus — its own
+  // analytics column, separate from what the physical sheet or a staff
+  // verification eventually decided.
+  checkInStatus: 'NOT_CHECKED_IN' | 'CHECKED_IN_PENDING' | 'CHECKED_IN_VERIFIED' | 'CHECKED_IN_REJECTED';
+  // What the physical sign-in sheet said, independent of check-in/final
+  // status — null when no physical sheet was reconciled for this student on
+  // this event (e.g. a pure online-check-in session).
+  physicalSheetStatus: 'PRESENT' | 'ABSENT' | null;
   quizCompleted: boolean;
   score: number | null;
   maxScore: number | null;

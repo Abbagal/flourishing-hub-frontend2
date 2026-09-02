@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { ArrowLeft, Download, Eye, Star } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
 import { WorkshopAnalyticsRow } from '@/types';
+import { AnalyticsStudentEntry } from '@/types';
 import { AttendanceOnlyStatus, aggregateStudents, ModuleStatus, StudentAggregateRow } from './filterUtils';
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
@@ -66,6 +67,45 @@ function AttendanceOnlyBadge({ status }: { status: AttendanceOnlyStatus | undefi
   );
 }
 
+// Raw self-check-in outcome per module — independent of what the physical
+// sheet or the final computed status says, its own column.
+type CheckInStatus = AnalyticsStudentEntry['checkInStatus'];
+const CHECK_IN_STYLE: Record<CheckInStatus, string> = {
+  NOT_CHECKED_IN: 'bg-white/5 text-white/30 border-white/10',
+  CHECKED_IN_PENDING: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  CHECKED_IN_VERIFIED: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  CHECKED_IN_REJECTED: 'bg-red-500/15 text-red-400 border-red-500/30',
+};
+const CHECK_IN_LABEL: Record<CheckInStatus, string> = {
+  NOT_CHECKED_IN: 'Not Checked-in',
+  CHECKED_IN_PENDING: 'Checked-in (Pending)',
+  CHECKED_IN_VERIFIED: 'Checked-in (Verified)',
+  CHECKED_IN_REJECTED: 'Checked-in (Rejected)',
+};
+
+function CheckInBadge({ status }: { status: CheckInStatus | undefined }) {
+  if (!status) return <span className="text-white/20">—</span>;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${CHECK_IN_STYLE[status]}`}>
+      {CHECK_IN_LABEL[status]}
+    </span>
+  );
+}
+
+// What the physical sign-in sheet said — null means no physical sheet was
+// reconciled for this student on this module (e.g. a pure online event).
+type PhysicalSheetStatus = AnalyticsStudentEntry['physicalSheetStatus'];
+function PhysicalSheetBadge({ status }: { status: PhysicalSheetStatus | undefined }) {
+  if (!status) return <span className="text-white/20">—</span>;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+      status === 'PRESENT' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-red-500/15 text-red-400 border-red-500/30'
+    }`}>
+      {status}
+    </span>
+  );
+}
+
 export default function StudentFilterView({ rows, selectedCourse }: { rows: WorkshopAnalyticsRow[]; selectedCourse?: string }) {
   const [selected, setSelected] = useState<StudentAggregateRow | null>(null);
 
@@ -115,6 +155,8 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
         ...Object.fromEntries(moduleNames.flatMap((m) => [
           [`${m} — Result`, s.moduleStatus[m] ?? '—'],
           [`${m} — Attended`, s.moduleAttendance[m] ?? '—'],
+          [`${m} — Check-in`, s.moduleCheckIn[m] ? CHECK_IN_LABEL[s.moduleCheckIn[m]] : '—'],
+          [`${m} — Physical Sheet`, s.modulePhysicalSheet[m] ?? '—'],
         ])),
       })),
       'student-analytics',
@@ -153,7 +195,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-card">
                   <tr className="border-b border-white/5">
-                    {['Workshop', 'Course', 'Date', 'Batch', 'Attendance', 'Score', 'Rating'].map((h) => (
+                    {['Workshop', 'Course', 'Date', 'Batch', 'Check-in Status', 'Physical Sheet', 'Final Attendance', 'Score', 'Rating'].map((h) => (
                       <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -166,13 +208,19 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                       <td className="px-3 py-2.5 text-white/60">{new Date(h.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td className="px-3 py-2.5 text-white/60">{h.batch}</td>
                       <td className="px-3 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        <CheckInBadge status={h.checkInStatus} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <PhysicalSheetBadge status={h.physicalSheetStatus} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
                           h.attendanceStatus === 'PRESENT' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            : h.attendanceStatus === 'ABSENT' ? 'bg-red-500/15 text-red-400 border-red-500/30'
                             : h.attendanceStatus === 'EXCUSED' ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
-                            : 'bg-white/5 text-white/30 border-white/10'
+                            : h.attendanceStatus === 'NOT_MARKED' && h.hasCheckedIn ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                            : 'bg-red-500/15 text-red-400 border-red-500/30'
                         }`}>
-                          {h.attendanceStatus === 'NOT_MARKED' ? 'N/A' : h.attendanceStatus}
+                          {h.attendanceStatus === 'NOT_MARKED' ? (h.hasCheckedIn ? 'Attendance Verification In-progress' : 'ABSENT') : h.attendanceStatus}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-white/70 font-semibold">
@@ -230,7 +278,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                 <tr className="border-b border-white/5">
                   {[
                     'Name', 'Roll No', 'Email', 'Department', 'Batch', 'Events', 'Attendance', 'Avg Score', 'Avg Rating',
-                    ...moduleNames.flatMap((m) => [`${m} — Result`, `${m} — Attended`]),
+                    ...moduleNames.flatMap((m) => [`${m} — Result`, `${m} — Attended`, `${m} — Check-in`, `${m} — Physical Sheet`]),
                     '',
                   ].map((h, i) => (
                     <th key={`${h}-${i}`} className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -240,7 +288,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={10 + moduleNames.length * 2} className="text-center py-12 text-white/30">No students match the current filter</td>
+                    <td colSpan={10 + moduleNames.length * 4} className="text-center py-12 text-white/30">No students match the current filter</td>
                   </tr>
                 ) : students.map((s) => (
                   <tr
@@ -271,6 +319,12 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                         </td>
                         <td className="px-4 py-3">
                           <AttendanceOnlyBadge status={s.moduleAttendance[m]} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <CheckInBadge status={s.moduleCheckIn[m]} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <PhysicalSheetBadge status={s.modulePhysicalSheet[m]} />
                         </td>
                       </Fragment>
                     ))}
