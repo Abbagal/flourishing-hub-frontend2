@@ -593,13 +593,27 @@ export default function StudentDashboard() {
                 </div>
                 <p className="text-xs font-semibold text-white text-center line-clamp-2">{bundle.courseName}</p>
                 <div className="flex gap-1 flex-wrap justify-center">
-                  {Array.from({ length: bundle.totalWorkshops }).map((_, idx) => (
-                    <span key={idx} className="text-base leading-none" title={idx < bundle.attended ? 'Attended' : 'Pending'}>
-                      {idx < bundle.attended ? '🟩' : '⬜'}
-                    </span>
-                  ))}
+                  {Array.from({ length: bundle.totalWorkshops }).map((_, idx) => {
+                    // Order: confirmed-attended squares first, then any
+                    // self-checked-in-but-unverified ones, then genuinely
+                    // not-yet-attended — a pending check-in isn't a no-show,
+                    // so it gets its own square instead of looking identical
+                    // to one (see verificationPending on the home page for
+                    // the same distinction).
+                    const isAttended = idx < bundle.attended;
+                    const isPending = !isAttended && idx < bundle.attended + (bundle.pendingVerification || 0);
+                    const label = isAttended ? 'Attended' : isPending ? 'Attendance Verification In-progress' : 'Not yet attended';
+                    return (
+                      <span key={idx} className="text-base leading-none" title={label}>
+                        {isAttended ? '🟩' : isPending ? '🟨' : '⬜'}
+                      </span>
+                    );
+                  })}
                 </div>
-                <p className="text-[10px] text-white/40">{bundle.attended} of {bundle.totalWorkshops} workshops</p>
+                <p className="text-[10px] text-white/40">
+                  {bundle.attended} of {bundle.totalWorkshops} workshops
+                  {bundle.pendingVerification > 0 && <span className="text-amber-400"> · {bundle.pendingVerification} pending verification</span>}
+                </p>
               </motion.div>
             ))}
           </div>
