@@ -497,7 +497,7 @@ export default function StudentDashboard() {
                         : 'bg-red-500/15 text-red-400 border border-red-500/30'
                     }`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${isPresent ? 'bg-emerald-400' : isExcused ? 'bg-yellow-400' : isPending ? 'bg-amber-400' : 'bg-red-400'}`} />
-                      {isPresent ? 'Present' : isExcused ? 'Excused' : isPending ? 'Pending Verification' : 'Absent'}
+                      {isPresent ? 'Present' : isExcused ? 'Excused' : isPending ? 'Attendance Verification In-progress' : 'Absent'}
                     </span>
                     <p className="text-xs text-white/60">
                       {record.marks != null ? `${record.marks}/${record.maxMarks}` : '—'}
@@ -612,7 +612,7 @@ export default function StudentDashboard() {
                 </div>
                 <p className="text-[10px] text-white/40">
                   {bundle.attended} of {bundle.totalWorkshops} workshops
-                  {bundle.pendingVerification > 0 && <span className="text-amber-400"> · {bundle.pendingVerification} pending verification</span>}
+                  {bundle.pendingVerification > 0 && <span className="text-amber-400"> · {bundle.pendingVerification} attendance verification in-progress</span>}
                 </p>
               </motion.div>
             ))}

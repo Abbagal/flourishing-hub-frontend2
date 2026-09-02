@@ -26,7 +26,7 @@ const MODULE_STATUS_STYLE: Record<ModuleStatus, string> = {
 const MODULE_STATUS_LABEL: Record<ModuleStatus, string> = {
   PRESENT: 'Present',
   ABSENT: 'Absent',
-  PENDING: 'Pending Verification',
+  PENDING: 'Attendance Verification In-progress',
   FAIL: 'Fail',
   'N/A': 'N/A',
 };
@@ -54,7 +54,7 @@ const ATTENDANCE_ONLY_STYLE: Record<AttendanceOnlyStatus, string> = {
 const ATTENDANCE_ONLY_LABEL: Record<AttendanceOnlyStatus, string> = {
   PRESENT: 'Attended',
   ABSENT: 'Absent',
-  PENDING: 'Pending Verification',
+  PENDING: 'Attendance Verification In-progress',
 };
 
 function AttendanceOnlyBadge({ status }: { status: AttendanceOnlyStatus | undefined }) {
