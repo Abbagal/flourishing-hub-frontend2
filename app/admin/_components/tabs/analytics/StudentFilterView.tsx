@@ -122,6 +122,15 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
     [rows, selectedCourse],
   );
 
+  // Per-topic "Score" column is only meaningful for courses that run a quiz
+  // (Course.hasQuiz) — shown alongside Result/Attended/Check-in/Physical Sheet.
+  const showScore = useMemo(() => rows.some((r) => r.courseHasQuiz), [rows]);
+  const perModuleCols = showScore ? 5 : 4;
+  const fmtScore = (m: string, row: StudentAggregateRow) => {
+    const v = row.moduleScore[m];
+    return v ? `${v.score} / ${v.maxScore}` : 'N/A';
+  };
+
   const metrics = useMemo(() => {
     const withAttendance = students.filter((s) => s.attendancePct != null);
     const avgAttendance = withAttendance.length
@@ -154,6 +163,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
         'Avg Rating': s.avgRating ?? '—',
         ...Object.fromEntries(moduleNames.flatMap((m) => [
           [`${m} — Result`, s.moduleStatus[m] ?? '—'],
+          ...(showScore ? [[`${m} — Score`, fmtScore(m, s)] as [string, string]] : []),
           [`${m} — Attended`, s.moduleAttendance[m] ?? '—'],
           [`${m} — Check-in`, s.moduleCheckIn[m] ? CHECK_IN_LABEL[s.moduleCheckIn[m]] : '—'],
           [`${m} — Physical Sheet`, s.modulePhysicalSheet[m] ?? '—'],
@@ -278,7 +288,11 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                 <tr className="border-b border-white/5">
                   {[
                     'Name', 'Roll No', 'Email', 'Department', 'Batch', 'Events', 'Attendance', 'Avg Score', 'Avg Rating',
-                    ...moduleNames.flatMap((m) => [`${m} — Result`, `${m} — Attended`, `${m} — Check-in`, `${m} — Physical Sheet`]),
+                    ...moduleNames.flatMap((m) => [
+                      `${m} — Result`,
+                      ...(showScore ? [`${m} — Score`] : []),
+                      `${m} — Attended`, `${m} — Check-in`, `${m} — Physical Sheet`,
+                    ]),
                     '',
                   ].map((h, i) => (
                     <th key={`${h}-${i}`} className="px-4 py-3 text-left text-[10px] font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -288,7 +302,7 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={10 + moduleNames.length * 4} className="text-center py-12 text-white/30">No students match the current filter</td>
+                    <td colSpan={10 + moduleNames.length * perModuleCols} className="text-center py-12 text-white/30">No students match the current filter</td>
                   </tr>
                 ) : students.map((s) => (
                   <tr
@@ -317,6 +331,13 @@ export default function StudentFilterView({ rows, selectedCourse }: { rows: Work
                         <td className="px-4 py-3">
                           <ModuleStatusBadge status={s.moduleStatus[m]} />
                         </td>
+                        {showScore && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {s.moduleScore[m]
+                              ? <span className="text-white/80 font-semibold">{s.moduleScore[m].score} / {s.moduleScore[m].maxScore}</span>
+                              : <span className="text-white/25">N/A</span>}
+                          </td>
+                        )}
                         <td className="px-4 py-3">
                           <AttendanceOnlyBadge status={s.moduleAttendance[m]} />
                         </td>

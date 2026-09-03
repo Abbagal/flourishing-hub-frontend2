@@ -1,13 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { FileSpreadsheet, Users, BookOpen, GraduationCap } from 'lucide-react';
+import { FileSpreadsheet, Users, BookOpen, GraduationCap, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AnalyticsFilterState, WorkshopAnalyticsRow } from '@/types';
 import AnalyticsFilterBar from './analytics/AnalyticsFilterBar';
 import WorkshopFilterView from './analytics/WorkshopFilterView';
 import StudentFilterView from './analytics/StudentFilterView';
 import InstructorFilterView from './analytics/InstructorFilterView';
+import UploadQuizScoresModal from './analytics/UploadQuizScoresModal';
 import { emptyAnalyticsFilters, filterAnalyticsRows } from './analytics/filterUtils';
 
 interface AnalyticsTabProps {
@@ -16,6 +17,7 @@ interface AnalyticsTabProps {
   selectedAnalyticsEvent: any | null;
   setSelectedAnalyticsEvent: (event: any | null) => void;
   courses: any[];
+  refreshAnalytics?: () => void;
 }
 
 type SubTab = 'workshop' | 'student' | 'instructor';
@@ -32,11 +34,13 @@ export default function AnalyticsTab({
   selectedAnalyticsEvent,
   setSelectedAnalyticsEvent,
   courses,
+  refreshAnalytics,
 }: AnalyticsTabProps) {
   const [subTab, setSubTab] = useState<SubTab>('workshop');
   const [filters, setFilters] = useState<AnalyticsFilterState>(emptyAnalyticsFilters);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingResponses, setExportingResponses] = useState(false);
+  const [showUploadScores, setShowUploadScores] = useState(false);
 
   const filteredRows = useMemo(() => filterAnalyticsRows(analyticsData, filters), [analyticsData, filters]);
 
@@ -108,6 +112,14 @@ export default function AnalyticsTab({
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowUploadScores(true)}
+            title="Upload a topic-wise quiz score sheet (Roll No + Score, out of 10) — populates the Score column in the Student-Level Filter"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all text-sm font-semibold"
+          >
+            <Upload className="w-4 h-4" />
+            Upload Quiz Scores
+          </button>
+          <button
             onClick={exportStudentResponses}
             disabled={exportingResponses}
             title="Exports student-wise in-built Quiz score, in-built Feedback answers, and Rating — honoring the Course/Topic/Instructor/Batch filters below"
@@ -172,6 +184,14 @@ export default function AnalyticsTab({
           {subTab === 'instructor' && <InstructorFilterView rows={filteredRows} />}
         </>
       )}
+
+      <UploadQuizScoresModal
+        open={showUploadScores}
+        onClose={() => setShowUploadScores(false)}
+        courses={courses}
+        analyticsData={analyticsData}
+        onUploaded={() => refreshAnalytics?.()}
+      />
     </div>
   );
 }

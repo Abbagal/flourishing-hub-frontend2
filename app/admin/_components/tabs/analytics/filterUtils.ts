@@ -157,6 +157,11 @@ export interface StudentAggregateRow {
   // Same keys as moduleStatus — what the physical sign-in sheet said per
   // module, independent of check-in/final status.
   modulePhysicalSheet: Record<string, AnalyticsStudentEntry['physicalSheetStatus']>;
+  // Same keys as moduleStatus — the student's quiz score for that module
+  // (score/maxScore straight from the analytics entry; populated by an
+  // uploaded topic score sheet or an in-built quiz). Absent from the map
+  // when no score exists — rendered as "N/A" in the Score column.
+  moduleScore: Record<string, { score: number; maxScore: number }>;
 }
 
 /** Dedupes the (already filtered) rows' nested students by userId, aggregating across every matching appearance. */
@@ -195,6 +200,7 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
           moduleAttendance: {},
           moduleCheckIn: {},
           modulePhysicalSheet: {},
+          moduleScore: {},
         };
         map.set(key, agg);
       }
@@ -210,6 +216,9 @@ export function aggregateStudents(rows: WorkshopAnalyticsRow[]): StudentAggregat
         agg.moduleAttendance[row.moduleName] = computeAttendanceOnlyStatus(s);
         agg.moduleCheckIn[row.moduleName] = s.checkInStatus;
         agg.modulePhysicalSheet[row.moduleName] = s.physicalSheetStatus;
+        if (s.score != null && s.maxScore != null) {
+          agg.moduleScore[row.moduleName] = { score: s.score, maxScore: s.maxScore };
+        }
       }
       agg.history.push({
         workshopName: row.workshopName,

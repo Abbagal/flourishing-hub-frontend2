@@ -531,21 +531,24 @@ export default function AdminDashboard() {
     finally { setBulkEnrolling(false); }
   };
 
+  // Re-fetches the workshop analytics table — used on first open of the tab
+  // and after an action that changes its data (e.g. a quiz-score upload).
+  const refreshAnalytics = async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await apiCall('/admin/analytics/workshops');
+      setAnalyticsData(res.data || []);
+    } catch {
+      toast.error('Failed to load analytics');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
   // Fetch analytics when analytics tab is opened
   useEffect(() => {
     if (activeTab !== 'analytics' || analyticsData.length > 0) return;
-    const fetchAnalytics = async () => {
-      setAnalyticsLoading(true);
-      try {
-        const res = await apiCall('/admin/analytics/workshops');
-        setAnalyticsData(res.data || []);
-      } catch {
-        toast.error('Failed to load analytics');
-      } finally {
-        setAnalyticsLoading(false);
-      }
-    };
-    fetchAnalytics();
+    refreshAnalytics();
   }, [activeTab]);
 
   if (loading) {
@@ -1476,7 +1479,7 @@ export default function AdminDashboard() {
           {activeTab === 'past-records' && <PastRecordsTab eventsLoading={eventsLoading} events={events} pastRecordsData={pastRecordsData} courses={courses} />}
 
           {/* Analytics Tab */}
-          {activeTab === 'analytics' && <AnalyticsTab analyticsLoading={analyticsLoading} analyticsData={analyticsData} selectedAnalyticsEvent={selectedAnalyticsEvent} setSelectedAnalyticsEvent={setSelectedAnalyticsEvent} courses={courses} />}
+          {activeTab === 'analytics' && <AnalyticsTab analyticsLoading={analyticsLoading} analyticsData={analyticsData} selectedAnalyticsEvent={selectedAnalyticsEvent} setSelectedAnalyticsEvent={setSelectedAnalyticsEvent} courses={courses} refreshAnalytics={refreshAnalytics} />}
 
           {/* Calendar Tab */}
           {activeTab === 'calendar' && <CalendarTab eventsLoading={eventsLoading} events={events} router={router} />}
